@@ -1,0 +1,86 @@
+{
+  "id": 1001,
+  "uuid": "123e4567-e89b-12d3-a456-426614174000",
+  "title": {
+    "zh_CN": "塞尔达传说：旷野之息",
+    "en_US": "The Legend of Zelda: Breath of the Wild"
+  },
+  "aliases": ["野炊", "BotW"],
+  "media": {
+    "cover": "https://example.com/images/zelda_botw_cover.jpg",
+    "screenshots": [
+      "https://example.com/images/ss1.jpg"
+    ]
+  },
+  "metadata": {
+    "platforms": ["PC", "Switch"],
+    "genres": ["动作", "冒险", "开放世界"]
+  },
+  "downloads": [
+    {
+      "platform": "PC",
+      "edition": "标准高清原版 (模拟器)",
+      "version": "v1.6.0",
+      "file_format": "免安装绿色版",
+      "file_size_display": "14.4 GB",
+      "system_requirements": {
+        "cpu": "Intel Core i5 或同等级",
+        "ram": "8 GB",
+        "gpu": "GTX 1060"
+      },
+      "sources": [
+        {
+          "provider": "baidu",
+          "name": "百度网盘",
+          "url": "https://pan.baidu.com/s/1KbUaLo13AhtZyyyrN7jXmg",
+          "password": "6qk8",
+          "is_valid": true
+        }
+      ]
+    },
+    {
+      "platform": "Switch",
+      "edition": "NS 原生版",
+      "version": "v1.6.0 + 2DLC整合版",
+      "file_format": "NSP",
+      "file_size_display": "15.1 GB",
+      "system_requirements": {
+        "firmware": "16.0.3",         
+        "is_patched": false           
+      },
+      "sources": [
+        {
+          "provider": "aliyun",
+          "name": "阿里云盘",
+          "url": "https://www.aliyundrive.com/s/switch_link",
+          "password": "ali1",
+          "is_valid": true
+        }
+      ]
+    },
+    {
+      "platform": "PS4",
+      "edition": "PS4 镜像版",
+      "version": "v1.00",
+      "file_format": "PKG",
+      "file_size_display": "42.3 GB",
+      "system_requirements": {
+        "firmware": "9.00",            "//": "同样适用：PS4要求固件系统在9.00以下（破解要求）"
+      },
+      "sources": [
+        {
+          "provider": "quark",
+          "name": "夸克网盘",
+          "url": "https://pan.quark.cn/s/ps4_link",
+          "password": "ps4pwd",
+          "is_valid": true
+        }
+      ]
+    }
+  ],
+  "system": {
+    "is_active": true,
+    "created_at": "2026-06-23T10:30:00Z",
+    "updated_at": "2026-06-23T10:30:00Z"
+  }
+}
