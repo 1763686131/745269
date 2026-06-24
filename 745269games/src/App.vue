@@ -1,8 +1,14 @@
 <script setup>
-// import HelloWorld from './components/GameHome.vue'
-import categoryDetail from './Router/CategoryDetail.vue'
+import GameHome from './components/GameHome.vue'
+import CategoryDetail from './components/CategoryDetail.vue'
 </script>
 
 <template>
-  <categoryDetail />
+  <!-- <GameHome /> -->
+  <CategoryDetail />
+
 </template>
+
+<style>
+
+</style>
