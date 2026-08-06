@@ -1,72 +1,7 @@
 <template>
   <div class="admin-layout">
-    
-    <aside class="sidebar">
-      <div class="logo-area">
-        <div class="logo-box">745269</div>
-        <span class="logo-text">后台管理系统</span>
-      </div>
-
-      <nav class="menu-container">
-        <div class="menu-group">
-          <div class="menu-parent">
-            <span class="menu-title">主菜单</span>
-            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-          
-          <div class="sub-menu-list">
-            <a href="#" class="sub-item active">游戏列表</a>
-            <a href="#" class="sub-item">用户列表</a>
-            <a href="#" class="sub-item">访问数据</a>
-            <a href="#" class="sub-item">下载次数</a>
-          </div>
-        </div>
-      </nav>
-    </aside>
-
     <main class="main-content">
-      
-      <header class="top-header">
-        <div class="breadcrumb">
-          <span class="text-gray">主菜单</span>
-          <span class="divider">/</span>
-          <span class="text-bold">游戏列表</span>
-        </div>
-
-        <div class="header-actions">
-          <div class="search-box">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" placeholder="在此处输入..." class="search-input">
-          </div>
-          <button class="action-btn login-btn">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            登录
-          </button>
-          <button class="action-btn">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-          </button>
-          <button class="action-btn">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-          </button>
-        </div>
-      </header>
-
       <div class="workspace">
-        
         <div class="action-bar">
           <button class="btn-upload">上传游戏</button>
         </div>
@@ -78,91 +13,97 @@
             <div class="table-header">
               <div class="col-game">游戏</div>
               <div class="col-date">上架日期</div>
-              <div class="col-cat">分类</div>
-              <div class="col-links">资源链接</div>
+              <div class="col-cat">平台/分类</div>
               <div class="col-downloads">下载量</div>
               <div class="col-actions">管理</div>
             </div>
 
-            <div class="table-row">
+            <div 
+              class="table-row" 
+              v-for="game in gameStore.adminTableData" 
+              :key="game.id"
+            >
               <div class="col-game game-info">
-                <img src="https://images.unsplash.com/photo-1612404730960-5c71577fca11?w=100&h=100&fit=crop" class="game-cover" alt="Zelda">
+                <img :src="game.cover" class="game-cover" alt="cover">
                 <div class="game-text">
-                  <h3>塞尔达传说</h3>
-                  <p>The Legend of Zelda: Breath of the Wild</p>
+                  <h3>{{ game.nameZh }}</h3>
+                  <p>{{ game.nameEn }}</p>
                 </div>
               </div>
-              <div class="col-date date-text">14/06/21</div>
+              <div class="col-date date-text">{{ game.date }}</div>
               <div class="col-cat cat-text">
-                <strong>SWITCH</strong>
-                <p>单人</p>
+                <strong v-for="plat in game.platforms" :key="plat">{{ plat }} </strong>
+                <p><span v-for="tag in game.tags" :key="tag">[{{ tag }}] </span></p>
               </div>
-              <div class="col-links tags">
-                <span class="tag tag-blue">百度云</span>
-                <span class="tag tag-green">夸克</span>
-              </div>
-              <div class="col-downloads empty-text">-</div>
+              <div class="col-downloads empty-text">{{ game.downloads }}</div>
               <div class="col-actions btn-group">
                 <button class="btn-modify">修改</button>
-                <button class="btn-delete">下架</button>
+                <button class="btn-delete" @click="gameStore.deleteGame(game.id)">下架</button>
               </div>
             </div>
 
-            <div class="table-row">
-              <div class="col-game game-info">
-                <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=100&h=100&fit=crop" class="game-cover" alt="PUBG">
-                <div class="game-text">
-                  <h3>绝地求生</h3>
-                  <p>PUBG</p>
-                </div>
-              </div>
-              <div class="col-date date-text">14/06/21</div>
-              <div class="col-cat cat-text">
-                <strong>PS5</strong>
-                <p>单人</p>
-              </div>
-              <div class="col-links tags">
-                <span class="tag tag-blue">百度云</span>
-              </div>
-              <div class="col-downloads empty-text">-</div>
-              <div class="col-actions btn-group">
-                <button class="btn-modify">修改</button>
-                <button class="btn-delete">下架</button>
-              </div>
-            </div>
-
-            <div class="table-row">
-              <div class="col-game game-info">
-                <img src="https://images.unsplash.com/photo-1511512578047-dfb367046420?w=100&h=100&fit=crop" class="game-cover" alt="It Takes Two">
-                <div class="game-text">
-                  <h3>双人成行</h3>
-                  <p>It Takes Two</p>
-                </div>
-              </div>
-              <div class="col-date date-text">14/06/21</div>
-              <div class="col-cat cat-text">
-                <strong>PC</strong>
-                <p>双人</p>
-              </div>
-              <div class="col-links tags">
-                <span class="tag tag-red">迅雷</span>
-              </div>
-              <div class="col-downloads empty-text">-</div>
-              <div class="col-actions btn-group">
-                <button class="btn-modify">修改</button>
-                <button class="btn-delete">下架</button>
-              </div>
-            </div>
+            <div v-if="gameStore.isLoading" style="text-align:center; padding: 20px;">数据加载中...</div>
 
           </div>
         </div>
-
       </div>
     </main>
   </div>
 </template>
 
+
+<script setup>
+import { onMounted } from 'vue'
+import { useGameStore } from '@/store/gameStore' // 引入你的 store
+
+// 实例化 store
+const gameStore = useGameStore()
+
+// 页面挂载时，触发获取数据的方法
+onMounted(() => {
+  gameStore.fetchGames()
+})
+</script>
+
 <style scoped>
+/* 🌟 核心优化：全部替换为主题变量 */
+.admin-layout {
+  background-color: var(--bg-admin-body); 
+  color: var(--text-main);
+}
+.sidebar {
+  background-color: var(--bg-card);
+  border-right: 1px solid var(--border-light);
+}
+.sub-item.active {
+  background-color: #E6FFF9; /* 可以提炼到变量 */
+  color: var(--color-admin-primary); 
+}
+.btn-upload {
+  background: linear-gradient(135deg, var(--color-admin-primary) 0%, var(--color-admin-hover) 100%);
+  color: var(--text-white);
+}
+.table-header {
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-light);
+}
+.table-row:hover {
+  background-color: var(--bg-hover);
+}
+.game-text h3 {
+  color: var(--text-heading);
+}
+.game-text p {
+  color: var(--text-light);
+}
+.btn-modify {
+  background-color: var(--color-danger); 
+}
+.btn-delete {
+  background-color: var(--color-orange); 
+}
+/* 其他样式保持之前的布局逻辑即可... */
+
 /* ================= 全局重置与基础变量 ================= */
 * {
   box-sizing: border-box;
