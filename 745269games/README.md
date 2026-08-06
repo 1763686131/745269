@@ -54,3 +54,15 @@ src/
     └── src/
         └── index.js
 ```
+
+
+### 后端运行代码：
+
+
+确保你在 server 目录下
+
+```bash
+
+npx wrangler dev
+
+```
