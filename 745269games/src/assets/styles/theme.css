@@ -1,0 +1,36 @@
+/* =========================================
+ * 🎨 745269.com - 全局颜色主题库 (theme.css)
+ * ========================================= */
+:root {
+  /* 1. 品牌主色调 (Primary) */
+  --color-primary: #2563eb;       /* 前台主色 蓝 */
+  --color-primary-hover: #1d4ed8;
+  --color-admin-primary: #2DD4BF; /* 后台主色 绿宝石 */
+  --color-admin-hover: #34D399;
+
+  /* 2. 背景色 (Background) */
+  --bg-body: #ffffff;             /* 前台大背景 */
+  --bg-admin-body: #F6F8FA;       /* 后台大背景灰 */
+  --bg-card: #ffffff;             /* 卡片纯白背景 */
+  --bg-hover: #F8FAFC;            /* 列表悬浮浅灰 */
+
+  /* 3. 文本颜色 (Text) */
+  --text-heading: #0F172A;        /* 大标题/极深色 */
+  --text-main: #334155;           /* 常规正文内容 */
+  --text-muted: #64748B;          /* 次要/导航默认色 */
+  --text-light: #94A3B8;          /* 占位符/极浅说明 */
+  --text-white: #ffffff;          /* 纯白文字 */
+
+  /* 4. 边框与分割线 (Border) */
+  --border-light: #F1F5F9;        /* 极浅分割线 */
+  --border-main: #E2E8F0;         /* 常用输入框边框 */
+  --border-dark: #CBD5E1;         /* 较深边框 */
+
+  /* 5. 状态与分类标签色 (Status & Tags) */
+  --color-success: #10B981;       /* 成功/多人局域网 */
+  --color-warning: #F59E0B;       /* 警告/单人 */
+  --color-danger: #EF4444;        /* 危险/下架按钮 */
+  --color-purple: #8B5CF6;        /* 经典游戏分类 */
+  --color-pink: #EC4899;          /* 双人分类 */
+  --color-orange: #F97316;        /* 橘色/特殊操作 */
+}

@@ -1,62 +1,68 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-// 定义并导出一个名为 useGameStore 的仓库
 export const useGameStore = defineStore('game', () => {
-  
-  // 1. 🌟 State (状态数据)：相当于原来的 data
+  // ================= 1. 状态 (State) =================
   const isLoading = ref(false)
-  const displayLimit = ref(10) // 默认显示10个
-  const sortOrder = ref('newest') // 排序状态也存进仓库
-  
-  // 模拟从数据库拿到的完整数据
-  const allGames = ref([
-    { id: 1, title: '双人成行', desc: '踏上生命中最疯狂的旅程。邀请好友通过远程同乐一起免费游玩，体验各种搞笑而混乱的合作游戏挑战。', rating: '9.8', tags: [{name: '双人', type: 'mode'}, {name: 'SWITCH', type: 'platform'}, {name: 'PC', type: 'platform'}] },
-    { id: 2, title: '赛博朋克：边缘行者', desc: '在这款开放世界动作冒险 RPG 中，你将扮演一名赛博朋克雇佣兵。探索夜之城。', rating: '9.5', tags: [{name: '单人', type: 'mode'}, {name: 'PC', type: 'platform'}, {name: 'PS5', type: 'platform'}] },
-    { id: 3, title: '空洞骑士', desc: '在宏大的地下废墟中探险。躲避陷阱，击败游荡的虫子，解开古老的谜团。', rating: '9.6', tags: [{name: '单人', type: 'mode'}, {name: 'SWITCH', type: 'platform'}, {name: 'PC', type: 'platform'}] },
-    { id: 4, title: '马力欧卡丁车 8', desc: '随时随地，享受竞速乐趣。', rating: '9.2', tags: [{name: '多人同屏', type: 'mode'}, {name: 'SWITCH', type: 'platform'}] },
-    { id: 5, title: '胡闹厨房 2', desc: '带着全新的烹饪行动回来了！重返洋葱王国，组建多达四人的大厨团队。', rating: '8.9', tags: [{name: '多人合作', type: 'mode'}, {name: 'PC', type: 'platform'}, {name: 'SWITCH', type: 'platform'}] },
-    { id: 6, title: '荒野大镖客：救赎 2', desc: '述说亚瑟·摩根和声名狼藉的范德林德帮派的传奇故事。', rating: '9.9', tags: [{name: '单人', type: 'mode'}, {name: 'PC', type: 'platform'}, {name: 'PS4', type: 'platform'}] },
-    { id: 7, title: '塞尔达传说：旷野之息', desc: '醒来吧，林克。探索一个广阔、美丽、危险的开放世界。', rating: '10.0', tags: [{name: '单人开放世界', type: 'mode'}, {name: 'SWITCH', type: 'platform'}] },
-    { id: 8, title: '星露谷物语', desc: '继承爷爷的农场，拿起工具和几枚硬币，开始你的新生活。', rating: '9.7', tags: [{name: '模拟经营', type: 'mode'}, {name: 'PC', type: 'platform'}, {name: 'SWITCH', type: 'platform'}] },
-    { id: 9, title: '怪物猎人：世界', desc: '在新大陆上狩猎巨大的怪物，收集材料打造更强的武器和防具。', rating: '9.3', tags: [{name: '多人联机', type: 'mode'}, {name: 'PC', type: 'platform'}, {name: 'PS4', type: 'platform'}] },
-    { id: 10, title: '泰拉瑞亚', desc: '挖掘，战斗，探索，建造！在这个充满无限可能的 2D 像素世界中创造属于你的冒险。', rating: '9.6', tags: [{name: '沙盒', type: 'mode'}, {name: 'PC', type: 'platform'}, {name: 'SWITCH', type: 'platform'}] },
-    { id: 11, title: '极限竞速：地平线 5', desc: '在墨西哥充满活力和不断变化的开放世界中，驾驶上百辆世界级的顶级豪车。', rating: '9.4', tags: [{name: '竞速', type: 'mode'}, {name: 'PC', type: 'platform'}] },
-    { id: 12, title: '死亡细胞', desc: '融合了类银河恶魔城与 Roguelite 元素的 2D 动作游戏。在一次次死亡中磨练技巧。', rating: '9.1', tags: [{name: '动作 Roguelite', type: 'mode'}, {name: 'PC', type: 'platform'}, {name: 'SWITCH', type: 'platform'}] },
-  ])
+  const allGames = ref([]) // 核心数据源
 
-  // 2. 🌟 Getters (计算属性)：帮你处理数据的逻辑
-  const displayedGames = computed(() => allGames.value.slice(0, displayLimit.value))
-  const hasMore = computed(() => displayLimit.value < allGames.value.length)
-  const totalCount = computed(() => allGames.value.length)
-
-  // 3. 🌟 Actions (动作方法)：修改数据或请求接口的地方
-  const loadMore = () => {
-    if (isLoading.value) return
+  // ================= 2. 动作 (Actions) =================
+  // 模拟从后端/本地获取数据 (未来这里直接换成 axios 请求)
+  const fetchGames = async () => {
     isLoading.value = true
+    // 模拟网络延迟
+    await new Promise(resolve => setTimeout(resolve, 500))
     
-    // 模拟网络请求延迟，未来你可以在这里用 axios.get() 替换
-    setTimeout(() => {
-      displayLimit.value += 10
-      isLoading.value = false
-    }, 800)
+    // 模拟你 games.json 的完整数据结构存入
+    allGames.value = [
+      {
+        id: 1001,
+        title: { zh_CN: "塞尔达传说：旷野之息", en_US: "The Legend of Zelda: Breath of the Wild" },
+        metadata: { platforms: ["PC", "Switch"], genres: ["动作", "开放世界"] },
+        media: { cover: "https://images.unsplash.com/photo-1612404730960-5c71577fca11?w=100&h=100&fit=crop" },
+        system: { created_at: "2026-06-23" },
+        downloads: 12500 // 模拟下载量
+      },
+      {
+        id: 1002,
+        title: { zh_CN: "双人成行", en_US: "It Takes Two" },
+        metadata: { platforms: ["PC", "PS5"], genres: ["双人", "冒险"] },
+        media: { cover: "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=100&h=100&fit=crop" },
+        system: { created_at: "2026-06-25" },
+        downloads: 8300
+      }
+    ]
+    isLoading.value = false
   }
 
-  // 修改排序方式
-  const setSortOrder = (order) => {
-    sortOrder.value = order
-    // 未来可以在这里重新向后端发起带排序参数的请求
+  // 模拟删除游戏操作 (后台用)
+  const deleteGame = (id) => {
+    // 过滤掉被删除的 ID
+    allGames.value = allGames.value.filter(game => game.id !== id)
+    // 未来这里需要调用 api.delete(`/games/${id}`)
   }
 
-  // 必须把需要给页面使用的变量和方法 return 出去
+  // ================= 3. 计算属性 (Getters) =================
+  // 给后台列表用的数据格式 (清洗一下数据方便表格展示)
+  const adminTableData = computed(() => {
+    return allGames.value.map(game => ({
+      id: game.id,
+      cover: game.media.cover,
+      nameZh: game.title.zh_CN,
+      nameEn: game.title.en_US,
+      date: game.system.created_at,
+      platforms: game.metadata.platforms,
+      tags: game.metadata.genres,
+      downloads: game.downloads
+    }))
+  })
+
+  // 暴露给组件使用
   return {
     isLoading,
-    sortOrder,
     allGames,
-    displayedGames,
-    hasMore,
-    totalCount,
-    loadMore,
-    setSortOrder
+    adminTableData,
+    fetchGames,
+    deleteGame
   }
 })
