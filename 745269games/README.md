@@ -6,6 +6,7 @@
 打包代码：
 
 
+### 前端目录结构
 
 ```Plaintext
 
@@ -39,4 +40,17 @@ src/
 ├── utils/              # 🛠️ 工具函数 (如日期格式化、数据清洗)
 └── main.js             # 入口文件
 
+```
+
+### 后端目录结构
+
+```Plaintext
+你的项目根目录/
+├── src/                #Vue 前端代码
+├── vite.config.js      #前端配置
+└── server/             #纯净版服务端
+    ├── package.json
+    ├── wrangler.toml
+    └── src/
+        └── index.js
 ```

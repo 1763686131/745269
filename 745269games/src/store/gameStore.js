@@ -19,7 +19,7 @@ export const useGameStore = defineStore('game', () => {
         id: 1001,
         title: { zh_CN: "塞尔达传说：旷野之息", en_US: "The Legend of Zelda: Breath of the Wild" },
         metadata: { platforms: ["PC", "Switch"], genres: ["动作", "开放世界"] },
-        media: { cover: "https://images.unsplash.com/photo-1612404730960-5c71577fca11?w=100&h=100&fit=crop" },
+        media: { cover: "https://tse1.explicit.bing.net/th/id/OIP.zHdOtX15HEJkVkhe5WIDfQHaEK?r=0&rs=1&pid=ImgDetMain&o=7&rm=3" },
         system: { created_at: "2026-06-23" },
         downloads: 12500 // 模拟下载量
       },
@@ -57,12 +57,30 @@ export const useGameStore = defineStore('game', () => {
     }))
   })
 
+const saveGame = (gameData) => {
+  if (gameData.id) {
+    // 💡 编辑模式：根据 ID 找到位置并替换
+    const index = allGames.value.findIndex(g => g.id === gameData.id)
+    if (index !== -1) {
+      allGames.value[index] = gameData
+    }
+  } else {
+    // 💡 新增模式：生成一个随机模拟的自增ID并插入数组最前面
+    gameData.id = Math.floor(Math.random() * 9000) + 1000 
+    allGames.value.unshift(gameData)
+  }
+}
+
+
+
+
   // 暴露给组件使用
   return {
     isLoading,
     allGames,
     adminTableData,
     fetchGames,
-    deleteGame
+    deleteGame,
+    saveGame
   }
 })
