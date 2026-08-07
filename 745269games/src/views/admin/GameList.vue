@@ -1,5 +1,4 @@
 <template>
-  
   <div class="admin-layout">
     
     <aside class="sidebar">
@@ -42,27 +41,9 @@
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" placeholder="在此处输入..." class="search-input">
+            <input type="text" placeholder="在此处搜索游戏..." class="search-input">
           </div>
-          <button class="action-btn login-btn">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            登录
-          </button>
-          <button class="action-btn">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-          </button>
-          <button class="action-btn">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-          </button>
+          <button class="action-btn login-btn">管理账号</button>
         </div>
       </header>
 
@@ -107,49 +88,57 @@
               </div>
             </div>
 
-            <div v-if="gameStore.isLoading" class="loading-tip">数据加载中...</div>
+            <div v-if="gameStore.isLoading" class="loading-tip">数据同步中...</div>
+            <div v-if="!gameStore.isLoading && gameStore.adminTableData.length === 0" class="loading-tip">暂无游戏数据，请点击上方“上传游戏”</div>
           </div>
         </div>
       </div>
-      <!-- 游戏表单弹窗 -->
-      <GameFormModal :visible="isModalVisible" :gameData="currentEditData" @update:visible="val => isModalVisible = val" @submit="handleSave"/>
+
     </main>
+
+    <GameFormModal :visible="isModalVisible" :gameData="currentEditData" @update:visible="val => isModalVisible = val" @submit="handleSave"/>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue' // 补充引入 ref
+import { onMounted, ref } from 'vue'
 import { useGameStore } from '@/store/gameStore'
-import GameFormModal from '@/components/admin/GameFormModal.vue' // 👈 引入表单组件
+import GameFormModal from '@/components/admin/GameFormModal.vue' 
 
 const gameStore = useGameStore()
 
-// 控制弹窗显示隐藏
+// 控制弹窗的显示隐藏
 const isModalVisible = ref(false)
-// 传入弹窗的当前编辑数据 (null 代表新增)
+// 当前编辑的数据（null 表示处于新增模式）
 const currentEditData = ref(null)
 
+// 页面挂载时拉取服务端最新数据
 onMounted(() => {
   gameStore.fetchGames()
 })
 
-// 点击“上传游戏”按钮
+// 1. 打开新增弹窗
 const openAddModal = () => {
-  currentEditData.value = null // 清空数据，进入新增模式
-  isModalVisible.value = true
+  console.log("👉 触发了上传游戏按钮，准备打开弹窗！")
+  currentEditData.value = null 
+  isModalVisible.value = true  
 }
 
-// 点击表格中的“修改”按钮
+// 2. 打开修改弹窗
 const openEditModal = (gameId) => {
-  // 从原始数据源中找到完整结构
+  console.log("👉 触发了修改游戏按钮，准备修改 ID:", gameId)
   const targetGame = gameStore.allGames.find(g => g.id === gameId)
-  currentEditData.value = targetGame // 传入数据，进入修改模式
-  isModalVisible.value = true
+  currentEditData.value = targetGame 
+  isModalVisible.value = true        
 }
 
-// 弹窗点击保存
-const handleSave = (formData) => {
-  gameStore.saveGame(formData) // 调用 Store 的保存方法
+// 3. 监听弹窗内部点击“确认保存”抛出的事件
+const handleSave = async (formData) => {
+  console.log("👉 接收到了弹窗传来的数据，准备提交给服务端：", formData)
+  const success = await gameStore.saveGame(formData)
+  if (success) {
+    alert('游戏数据已成功入库并同步！')
+  }
 }
 </script>
 
@@ -359,10 +348,6 @@ const handleSave = (formData) => {
 }
 .action-btn:hover { color: var(--text-heading, #1E293B); }
 .login-btn { font-size: 14px; font-weight: 600; }
-.icon-svg {
-  width: 20px;
-  height: 20px;
-}
 
 /* 核心工作区 */
 .workspace {
@@ -449,6 +434,7 @@ const handleSave = (formData) => {
   height: 44px;
   border-radius: 50%;
   object-fit: cover;
+  background-color: var(--border-light);
 }
 .game-text h3 {
   font-size: 14px;
@@ -497,8 +483,9 @@ const handleSave = (formData) => {
 
 .loading-tip {
   text-align: center;
-  padding: 20px;
+  padding: 40px;
   color: var(--text-light, #94A3B8);
+  font-weight: 600;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }

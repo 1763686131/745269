@@ -1,86 +1,126 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-export const useGameStore = defineStore('game', () => {
-  // ================= 1. 状态 (State) =================
-  const isLoading = ref(false)
-  const allGames = ref([]) // 核心数据源
+// 🌟 配置你的本地服务端基础地址 (上线后这里换成你的正式域名)
+const API_BASE_URL = 'http://localhost:8787'
 
-  // ================= 2. 动作 (Actions) =================
-  // 模拟从后端/本地获取数据 (未来这里直接换成 axios 请求)
+export const useGameStore = defineStore('game', () => {
+  const isLoading = ref(false)
+  const allGames = ref([])
+
+  // ================= 1. 获取游戏列表 (GET) =================
   const fetchGames = async () => {
     isLoading.value = true
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // 模拟你 games.json 的完整数据结构存入
-    allGames.value = [
-      {
-        id: 1001,
-        title: { zh_CN: "塞尔达传说：旷野之息", en_US: "The Legend of Zelda: Breath of the Wild" },
-        metadata: { platforms: ["PC", "Switch"], genres: ["动作", "开放世界"] },
-        media: { cover: "https://tse1.explicit.bing.net/th/id/OIP.zHdOtX15HEJkVkhe5WIDfQHaEK?r=0&rs=1&pid=ImgDetMain&o=7&rm=3" },
-        system: { created_at: "2026-06-23" },
-        downloads: 12500 // 模拟下载量
-      },
-      {
-        id: 1002,
-        title: { zh_CN: "双人成行", en_US: "It Takes Two" },
-        metadata: { platforms: ["PC", "PS5"], genres: ["双人", "冒险"] },
-        media: { cover: "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=100&h=100&fit=crop" },
-        system: { created_at: "2026-06-25" },
-        downloads: 8300
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games`)
+      if (!response.ok) throw new Error('网络请求失败')
+      const data = await response.json()
+      // 直接把数据库洗好的真实数据存入 Pinia
+      allGames.value = data
+    } catch (error) {
+      console.error('获取游戏列表失败:', error)
+      alert('获取数据失败，请检查服务端是否已启动 (npx wrangler dev)')
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // ================= 2. 保存/更新游戏 (POST / PUT) =================
+  const saveGame = async (gameData) => {
+    isLoading.value = true
+    try {
+      // 判断是有 ID 还是没有 ID，决定是修改还是新增
+      const isEdit = !!gameData.id
+      const url = isEdit ? `${API_BASE_URL}/api/games/${gameData.id}` : `${API_BASE_URL}/api/games`
+      const method = isEdit ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gameData)
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        // 🌟 成功后，重新从数据库拉取一次最新列表，保证数据绝对同步
+        await fetchGames()
+        return true 
+      } else {
+        throw new Error(result.error || '保存失败')
       }
-    ]
-    isLoading.value = false
+    } catch (error) {
+      console.error('保存游戏失败:', error)
+      alert('保存失败: ' + error.message)
+      return false
+    } finally {
+      isLoading.value = false
+    }
   }
 
-  // 模拟删除游戏操作 (后台用)
-  const deleteGame = (id) => {
-    // 过滤掉被删除的 ID
-    allGames.value = allGames.value.filter(game => game.id !== id)
-    // 未来这里需要调用 api.delete(`/games/${id}`)
+  // ================= 3. 删除游戏 (DELETE) =================
+  const deleteGame = async (id) => {
+    if (!confirm('🚨 确定要下架并永久删除这款游戏吗？该操作不可逆！')) return
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games/${id}`, {
+        method: 'DELETE'
+      })
+      const result = await response.json()
+      
+      if (result.success) {
+        // 从本地列表中移除该项，页面会秒刷新
+        allGames.value = allGames.value.filter(game => game.id !== id)
+      } else {
+        throw new Error(result.error || '删除失败')
+      }
+    } catch (error) {
+      console.error('删除游戏失败:', error)
+      alert('删除失败: ' + error.message)
+    }
   }
 
-  // ================= 3. 计算属性 (Getters) =================
-  // 给后台列表用的数据格式 (清洗一下数据方便表格展示)
+  // ================= 4. 上传单张图片 (POST) =================
+  const uploadImage = async (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upload`, {
+        method: 'POST',
+        body: formData // FormData 不需要手动设 Content-Type，浏览器会自动处理
+      })
+      const result = await response.json()
+      if (result.success) {
+        return result.url // 返回云端图片的真实外链
+      }
+      return null
+    } catch (error) {
+      console.error('图片上传失败:', error)
+      return null
+    }
+  }
+
+  // ================= 5. 计算属性 (清洗给后台表格用) =================
   const adminTableData = computed(() => {
     return allGames.value.map(game => ({
       id: game.id,
-      cover: game.media.cover,
-      nameZh: game.title.zh_CN,
-      nameEn: game.title.en_US,
-      date: game.system.created_at,
-      platforms: game.metadata.platforms,
-      tags: game.metadata.genres,
-      downloads: game.downloads
+      cover: game.media?.cover || '',
+      nameZh: game.title?.zh_CN || '未命名',
+      nameEn: game.title?.en_US || '',
+      // 格式化数据库的 UTC 时间为本地时间
+      date: game.system?.created_at ? new Date(game.system.created_at).toLocaleDateString() : '-',
+      platforms: game.metadata?.platforms || [],
+      tags: game.metadata?.genres || [],
+      downloads: game.downloads?.length || 0
     }))
   })
 
-const saveGame = (gameData) => {
-  if (gameData.id) {
-    // 💡 编辑模式：根据 ID 找到位置并替换
-    const index = allGames.value.findIndex(g => g.id === gameData.id)
-    if (index !== -1) {
-      allGames.value[index] = gameData
-    }
-  } else {
-    // 💡 新增模式：生成一个随机模拟的自增ID并插入数组最前面
-    gameData.id = Math.floor(Math.random() * 9000) + 1000 
-    allGames.value.unshift(gameData)
-  }
-}
-
-
-
-
-  // 暴露给组件使用
   return {
     isLoading,
     allGames,
     adminTableData,
     fetchGames,
+    saveGame,
     deleteGame,
-    saveGame
+    uploadImage // 暴露出图片上传方法给组件用
   }
 })
