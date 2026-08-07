@@ -433,14 +433,20 @@ const handlePlatformClick = (platform) => {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   margin-right: 12px; /* 和旁边的语言按钮拉开合适间距 */
+  margin-left: 30px;
 }
 
 
 
 
 .navbar-inner {
-  max-width: 1600px; height: 100%; margin: 0 auto; padding: 0 32px;
-  display: flex; align-items: center; justify-content: space-between;
+  max-width: 1600px; 
+  height: 100%; 
+  margin: 0 auto; 
+  padding: 0 32px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
 }
 
 .navbar-left { display: flex; align-items: center; gap: 48px; }
@@ -448,7 +454,11 @@ const handlePlatformClick = (platform) => {
 .text-dark { color: var(--text-heading); }
 .text-blue { color: #2563eb; }
 
-.category-nav { display: flex; gap: 32px; }
+.category-nav { 
+  display: flex;
+  justify-content: center;
+  gap: 32px; 
+}
 .nav-item {
   display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700;
   color: #64748b; text-decoration: none; transition: color 0.2s ease;
