@@ -1,6 +1,8 @@
 /* =========================================
  * 🎨 745269.com - 全局颜色主题库 (theme.css)
  * ========================================= */
+
+/* 🌞 默认：浅色主题变量 (白天) */
 :root {
   /* 1. 品牌主色调 (Primary) */
   --color-primary: #2563eb;       /* 前台主色 蓝 */
@@ -26,11 +28,43 @@
   --border-main: #E2E8F0;         /* 常用输入框边框 */
   --border-dark: #CBD5E1;         /* 较深边框 */
 
-  /* 5. 状态与分类标签色 (Status & Tags) */
+  /* 5. 状态与分类标签色 (Status & Tags) - 通常暗黑模式这些颜色不用大改，本身就很醒目 */
   --color-success: #10B981;       /* 成功/多人局域网 */
   --color-warning: #F59E0B;       /* 警告/单人 */
   --color-danger: #EF4444;        /* 危险/下架按钮 */
   --color-purple: #8B5CF6;        /* 经典游戏分类 */
   --color-pink: #EC4899;          /* 双人分类 */
   --color-orange: #F97316;        /* 橘色/特殊操作 */
+}
+
+/* 🌙 激活：暗黑主题变量 (夜晚) */
+html.dark {
+  /* 品牌色在暗黑模式下稍微调亮一点点，显得发光 */
+  --color-primary: #3b82f6;       
+  --color-primary-hover: #60a5fa;
+
+  /* 暗黑背景色替换 */
+  --bg-body: #0F172A;             /* 极深蓝黑，看着非常高级不刺眼 */
+  --bg-admin-body: #0B0F19;       /* 后台用更深的纯色 */
+  --bg-card: #1E293B;             /* 卡片浮起色 */
+  --bg-hover: #334155;            /* 悬浮更亮的灰 */
+
+  /* 暗黑文字色反转 */
+  --text-heading: #F8FAFC;        /* 大标题纯白 */
+  --text-main: #E2E8F0;           /* 正文稍微柔和的白 */
+  --text-muted: #94A3B8;          /* 次要文字变灰亮 */
+  --text-light: #64748B;          /* 极浅说明调暗 */
+  --text-white: #ffffff;          
+
+  /* 暗黑边框色反转 */
+  --border-light: #1E293B;        /* 极暗分割线 */
+  --border-main: #334155;         /* 常用深灰边框 */
+  --border-dark: #475569;         /* 较亮的边框 */
+}
+
+/* 🛠 全局应用变量，并开启丝滑的过渡动画 */
+body {
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }

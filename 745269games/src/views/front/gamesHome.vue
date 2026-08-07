@@ -43,6 +43,28 @@
         </div>
 
         <div class="navbar-right">
+
+          <!-- 主题切换按钮 -->
+          <button 
+            @click="toggleTheme" 
+            class="theme-toggle-btn"
+            title="切换主题"
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="18" 
+              height="18" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              stroke-width="2.5" 
+              stroke-linecap="round" 
+              stroke-linejoin="round"
+            >
+              <path d="M20.38 3.46 16 2a8.5 8.5 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
+            </svg>
+          </button>
+
           <button class="lang-toggle-btn" @click="toggleLang">
             {{ currentLang === 'zh' ? 'EN' : '中文' }}
           </button>
@@ -197,7 +219,22 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useGameStore } from '@/store/gameStore' 
+import { useGameStore } from '@/store/gameStore'
+
+
+// ---------- 主题切换核心逻辑 ----------
+const isDark = ref(false)
+
+const toggleTheme = () => {
+  isDark.value = !isDark.value
+  if (isDark.value) {
+    document.documentElement.classList.add('dark') // 激活 theme.css 里的 html.dark
+    localStorage.setItem('745269_theme', 'dark')   // 存入本地浏览器
+  } else {
+    document.documentElement.classList.remove('dark') // 变回白天
+    localStorage.setItem('745269_theme', 'light')     
+  }
+}
 
 const gameStore = useGameStore()
 const searchQuery = ref('')
@@ -212,6 +249,12 @@ const searchCooldown = ref(0)
 let cooldownTimer = null
 
 onMounted(() => {
+  const savedTheme = localStorage.getItem('745269_theme')
+  // 如果之前存过 dark，或者玩家系统本身就是深色模式
+  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    isDark.value = true
+    document.documentElement.classList.add('dark')
+  }
   const untilTime = localStorage.getItem('frontSearchCooldownUntil')
   if (untilTime) {
     const now = Date.now()
@@ -315,7 +358,7 @@ const i18n = {
     single: '大型单人',
     double: '双人同屏',
     multi: '多人局域网',
-    classic: '经典游戏',
+    classic: '体感游戏',
     goty: '年度最佳',
     placeholder: '搜索游戏、攻略、密令...',
     footer: '© 2026 745269.COM. 保留所有权利。',
@@ -357,21 +400,42 @@ const handlePlatformClick = (platform) => {
 :global(html), :global(body), :global(#app) {
   margin: 0 !important; padding: 0 !important; width: 100% !important;
   height: 100% !important; min-height: 100vh !important;
-  background-color: #ffffff !important;
+  background-color: var(--bg-body) !important; /* <--- 关键修改 */
 }
 
 .site-root-container {
-  width: 100% !important; min-height: 100vh !important; background-color: #ffffff !important;
+  width: 100% !important; min-height: 100vh !important; 
+  background-color: var(--bg-body) !important; /* <--- 关键修改 */
   display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   box-sizing: border-box; position: relative;
 }
-.site-root-container * { box-sizing: border-box; }
 
 /* ==================== 顶部导航栏 ==================== */
 .global-navbar {
-  width: 100%; height: 120px; background-color: #ffffff;
-  border-bottom: 1px solid #f1f5f9; position: relative; z-index: 999;
+  width: 100%; height: 120px; 
+  background-color: var(--bg-body); /* <--- 改掉纯白 */
+  border-bottom: 1px solid var(--border-light); /* <--- 改掉死灰 */
+  position: relative; z-index: 999;
 }
+/* 主题按钮悬浮样式 */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 2px solid var(--border-main); /* 与语言按钮保持一致的边框 */
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-right: 12px; /* 和旁边的语言按钮拉开合适间距 */
+}
+
+
+
+
 .navbar-inner {
   max-width: 1600px; height: 100%; margin: 0 auto; padding: 0 32px;
   display: flex; align-items: center; justify-content: space-between;
@@ -379,7 +443,7 @@ const handlePlatformClick = (platform) => {
 
 .navbar-left { display: flex; align-items: center; gap: 48px; }
 .site-logo { font-size: 35px; font-weight: 900; letter-spacing: -0.5px; user-select: none; }
-.text-dark { color: #0f172a; }
+.text-dark { color: var(--text-heading); }
 .text-blue { color: #2563eb; }
 
 .category-nav { display: flex; gap: 32px; }
@@ -394,12 +458,32 @@ const handlePlatformClick = (platform) => {
 .color-single { color: #f59e0b; } .color-double { color: #ec4899; } .color-multi { color: #10b981; }  
 .color-classic { color: #8b5cf6; } .color-goty { color: #eab308; }    
 
+/* 语言切换按钮 */
 .lang-toggle-btn {
-  background: transparent; color: #64748b; border: 2px solid #e2e8f0;
-  padding: 6px 14px; border-radius: 20px; font-size: 14px; font-weight: 800;
-  cursor: pointer; transition: all 0.2s; margin-right: 24px; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px; /* 强制两兄弟高度一致 */
+  background: transparent;
+  color: var(--text-muted);
+  border: 2px solid var(--border-main);
+  padding: 0 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-right: 24px;
 }
-.lang-toggle-btn:hover { color: #0f172a; border-color: #94a3b8; background-color: #f8fafc; }
+
+/* 共同的悬浮发光与微反弹特效 */
+.theme-toggle-btn:hover,
+.lang-toggle-btn:hover {
+  color: var(--text-heading);
+  border-color: var(--border-dark);
+  background-color: var(--bg-hover);
+  transform: scale(1.05); /* 鼠标移上去会有轻微的放大灵动感 */
+}
 
 .navbar-right { display: flex; align-items: center; }
 .desktop-navigation { display: flex; gap: 16px; }
@@ -432,26 +516,26 @@ const handlePlatformClick = (platform) => {
 }
 .brand-title-zone.is-hidden { max-height: 0; margin-bottom: 0; opacity: 0; transform: translateY(20px) scale(0.95); pointer-events: none; }
 
-.brand-glitch-title { font-size: 72px; font-weight: 900; color: #0f172a; letter-spacing: -2px; margin: 0; position: relative; display: inline-block; }
-.brand-glitch-title::before, .brand-glitch-title::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-.brand-glitch-title::before { left: -2px; text-shadow: 2px 0 rgba(239, 68, 68, 0.18); }
-.brand-glitch-title::after { left: 2px; text-shadow: -2px 0 rgba(37, 99, 211, 0.18); }
+.brand-glitch-title { 
+  font-size: 72px; font-weight: 900; 
+  color: var(--text-heading); /* <--- 标题颜色动态化 */
+  letter-spacing: -2px; margin: 0; position: relative; display: inline-block; 
+}
 
 .capsule-search-bar {
-  width: 100%; max-width: 780px; height: 64px; background-color: #ffffff; border: 2px solid #cbd5e1;
+  width: 100%; max-width: 780px; height: 64px; 
+  background-color: var(--bg-card); /* <--- 搜索框背景动态化 */
+  border: 2px solid var(--border-dark);
   border-radius: 100px; display: flex; align-items: center;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden;
 }
-.capsule-search-bar:focus-within { border-color: #2563eb; box-shadow: 0 16px 45px rgba(37, 99, 211, 0.16); transform: scale(1.01); }
-.search-icon-box { padding-left: 24px; display: flex; align-items: center; }
-.magnifier-icon { width: 24px; height: 24px; color: #94a3b8; transition: color 0.3s; }
-.capsule-search-bar:focus-within .magnifier-icon { color: #2563eb; }
 
 .search-core-input {
   flex-grow: 1; height: 100%; border: none !important; background: transparent !important;
-  padding: 0 20px; font-size: 18px; color: #0f172a; outline: none !important;
+  padding: 0 20px; font-size: 18px; 
+  color: var(--text-main); /* <--- 输入框文字颜色动态化 */
+  outline: none !important;
 }
-.search-core-input::placeholder { color: #94a3b8; }
 
 .search-go-btn {
   background: #2563eb; color: #ffffff; border: none; height: 100%; padding: 0 40px;
@@ -492,18 +576,18 @@ const handlePlatformClick = (platform) => {
 }
 
 .game-card {
-  background: #ffffff;
+  background: var(--bg-card); /* <--- 卡片背景动态化 */
   border-radius: 16px;
   overflow: hidden; 
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
   cursor: pointer;
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--border-light); /* <--- 边框动态化 */
 }
 .game-card:hover {
   transform: translateY(-8px);
   box-shadow: 0 16px 40px rgba(37, 99, 211, 0.1);
-  border-color: #dbeafe;
+  border-color: var(--border-hover);
 }
 
 .card-image-wrapper { width: 100%; aspect-ratio: 16 / 9; position: relative; overflow: hidden; }
@@ -530,11 +614,15 @@ const handlePlatformClick = (platform) => {
   margin-bottom: 12px;
   gap: 12px;
 }
+/* 卡片标题 */
 .game-title {
-  font-size: 20px; font-weight: 800; color: #0f172a; margin: 0;
+  font-size: 20px; font-weight: 800; 
+  color: var(--text-heading); /* <--- 卡片标题颜色动态化 */
+  margin: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   flex: 1; 
 }
+
 .hardcode-rating {
   font-size: 15px; font-weight: 900; color: #f59e0b;
   background: #fffbeb; border: 1px solid #fde68a;
@@ -542,7 +630,9 @@ const handlePlatformClick = (platform) => {
 }
 
 .game-desc {
-  font-size: 14px; color: #64748b; line-height: 1.6; margin: 0 0 20px 0; height: 44.8px;
+  font-size: 14px; 
+  color: var(--text-muted); /* <--- 简介文字颜色动态化 */
+  line-height: 1.6; margin: 0 0 20px 0; height: 44.8px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 
@@ -567,7 +657,7 @@ const handlePlatformClick = (platform) => {
 .bg-purple { background-color: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; } 
 .bg-green { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; } 
 
-.global-footer { width: 100%; padding: 28px 0; text-align: center; font-size: 13px; color: #94a3b8; border-top: 1px solid #f8fafc; }
+.global-footer { width: 100%; padding: 28px 0; text-align: center; font-size: 13px; color: #94a3b8; border-top: 1px solid var(--border-light); }
 
 /* ==================== 📱 移动端自适应 ==================== */
 @media (max-width: 992px) { 
@@ -594,10 +684,6 @@ const handlePlatformClick = (platform) => {
   
   .search-content-wrapper { margin-top: 15vh; }
   .search-content-wrapper.is-searched { margin-top: 20px; }
-  
-  .brand-glitch-title { font-size: 40px; letter-spacing: -1px; }
-  .capsule-search-bar { height: 52px; }
-  .search-core-input { font-size: 15px; padding: 0 12px; }
   .magnifier-icon { width: 20px; height: 20px; }
   .search-go-btn { padding: 0 28px; font-size: 15px; }
 
