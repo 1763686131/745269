@@ -143,7 +143,7 @@
                   
                   <div class="title-row">
                     <h2 class="game-title">{{ game.title?.zh_CN || game.title?.en_US || '未命名游戏' }}</h2>
-                    <span class="hardcode-rating">⭐ 9.8</span>
+                    <!-- <span class="hardcode-rating">⭐ 9.8</span> -->
                   </div>
 
                   <p class="game-desc">{{ game.description || '暂无简介，尽情探索吧！' }}</p>
