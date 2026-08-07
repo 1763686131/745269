@@ -1,11 +1,11 @@
 <script setup>
-  import GameList from './views/admin/GameList.vue'
-  // import home from './views/front/home.vue'
+  // import GameList from './views/admin/GameList.vue'
+  import gameshome from './views/front/gameshome.vue'
 </script>
 
 <template>
-  <!-- <home /> -->
-    <GameList></GameList>
+  <gameshome />
+    <!-- <GameList></GameList> -->
 </template>
 
 <style>

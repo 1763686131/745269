@@ -150,14 +150,20 @@
           </div>
           
           <input 
-            v-model="searchQuery"
+            v-model="searchKeyword"
             type="text"
             :placeholder="t.placeholder"
             class="search-core-input"
-            @keyup.enter="executeSearch"
+            @keyup.enter="handleSearch"
           />
           
-          <button class="search-go-btn" @click="executeSearch">GO</button>
+          <button 
+            class="search-go-btn" 
+            :class="{ 'is-disabled': searchCooldown > 0 }"
+            @click="handleSearch"
+          >
+            {{ searchCooldown > 0 ? `${searchCooldown}s` : 'GO' }}
+          </button>
         </div>
 
       </div>
@@ -171,13 +177,76 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useGameStore } from '@/store/gameStore' // 引入全局 Store
 
-const searchQuery = ref('')
+// 初始化 Store 和基础变量
+const gameStore = useGameStore()
+const searchKeyword = ref('')
 const isMobileMenuOpen = ref(false)
 
+// ==================== 🛡️ 核心防刷与搜索逻辑 ====================
+const searchCooldown = ref(0)
+let cooldownTimer = null
+
+onMounted(() => {
+  // 如果当前没有任何游戏数据，静默向后端拉取一次供搜索使用
+  if (gameStore.allGames.length === 0) {
+    gameStore.fetchGames()
+  }
+
+  // 页面加载时，检查 localStorage 里的独立解禁时间戳
+  const untilTime = localStorage.getItem('frontSearchCooldownUntil')
+  if (untilTime) {
+    const now = Date.now()
+    const remaining = Math.ceil((parseInt(untilTime) - now) / 1000)
+    if (remaining > 0) {
+      startCooldown(remaining)
+    } else {
+      localStorage.removeItem('frontSearchCooldownUntil')
+    }
+  }
+})
+
+// 启动倒计时的通用函数
+const startCooldown = (secondsRemaining) => {
+  searchCooldown.value = secondsRemaining
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  
+  cooldownTimer = setInterval(() => {
+    searchCooldown.value--
+    if (searchCooldown.value <= 0) {
+      clearInterval(cooldownTimer)
+      localStorage.removeItem('frontSearchCooldownUntil')
+    }
+  }, 1000)
+}
+
+// 执行搜索的核心方法
+const handleSearch = () => {
+  if (!searchKeyword.value.trim()) return
+
+  // 1. 冷却期拦截
+  if (searchCooldown.value > 0) {
+    alert(`搜索引擎充能中，请等待 ${searchCooldown.value} 秒后再试！`)
+    return
+  }
+
+  // 2. 调用全局管家方法进行双语匹配
+  const results = gameStore.searchGames(searchKeyword.value)
+  
+  // 3. 在控制台极客式打印真实返回结果！
+  console.log(`%c🔎 搜索关键词: [${searchKeyword.value}]`, 'color: #2563eb; font-weight: bold; font-size: 14px;')
+  console.log('%c👉 数据库匹配结果如下：', 'color: #10b981; font-weight: bold;', results)
+
+  // 4. 写入倒计时并存入物理硬盘
+  const until = Date.now() + 10000 
+  localStorage.setItem('frontSearchCooldownUntil', until.toString())
+  startCooldown(10)
+}
+
 // ==================== 🌐 语言包与切换逻辑 ====================
-const currentLang = ref('zh') // 默认中文
+const currentLang = ref('zh') 
 
 const i18n = {
   zh: {
@@ -202,10 +271,8 @@ const i18n = {
   }
 }
 
-// 自动响应当前语言的计算属性
 const t = computed(() => i18n[currentLang.value])
 
-// 切换语言的方法
 const toggleLang = () => {
   currentLang.value = currentLang.value === 'zh' ? 'en' : 'zh'
 }
@@ -213,11 +280,6 @@ const toggleLang = () => {
 
 const handlePlatformClick = (platform) => {
   console.log(`已选择平台: ${platform}`)
-}
-
-const executeSearch = () => {
-  if (!searchQuery.value.trim()) return
-  alert(`${t.value.searching}: ${searchQuery.value}`)
 }
 </script>
 
@@ -247,7 +309,7 @@ const executeSearch = () => {
 /* ==================== 顶部导航栏 ==================== */
 .global-navbar {
   width: 100%;
-  height: 120px; /* 您修改的高尺寸 */
+  height: 120px; 
   background-color: #ffffff;
   border-bottom: 1px solid #f1f5f9;
   position: relative;
@@ -270,7 +332,7 @@ const executeSearch = () => {
 }
 
 .site-logo {
-  font-size: 35px; /* 您修改的大尺寸 */
+  font-size: 35px; 
   font-weight: 900;
   letter-spacing: -0.5px;
   user-select: none;
@@ -320,7 +382,7 @@ const executeSearch = () => {
   font-weight: 800;
   cursor: pointer;
   transition: all 0.2s;
-  margin-right: 24px; /* 和右侧平台按钮拉开一点距离 */
+  margin-right: 24px; 
 }
 .lang-toggle-btn:hover {
   color: #0f172a;
@@ -458,9 +520,17 @@ const executeSearch = () => {
   font-weight: 800;
   cursor: pointer;
   letter-spacing: 1px;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
-.search-go-btn:hover { background-color: #1d4ed8; }
+.search-go-btn:hover:not(.is-disabled) { background-color: #1d4ed8; }
+
+/* 🌟 核心防刷冷却样式 */
+.search-go-btn.is-disabled {
+  background-color: #cbd5e1;
+  color: #f8fafc;
+  cursor: not-allowed;
+  padding: 0 30px; /* 文字变了，稍微调紧一点防变形 */
+}
 
 .global-footer {
   width: 100%;
@@ -486,7 +556,6 @@ const executeSearch = () => {
 
   .mobile-dropdown-menu {
     position: absolute;
-    /* ⚠️ 这里的 top 必须与你修改后的 nav 高度保持一致，已帮你改为 120px */
     top: 120px; 
     left: 0;
     width: 100%;
@@ -499,7 +568,6 @@ const executeSearch = () => {
     z-index: 998;
   }
 
-  /* 移动端把语言切换按钮挤近一点 */
   .lang-toggle-btn { margin-right: 16px; }
 
   .mobile-categories {

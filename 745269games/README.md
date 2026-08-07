@@ -25,7 +25,7 @@ src/
 │   └── AdminLayout.vue # 后台布局 (包含左侧菜单和顶部面包屑)
 ├── views/              # 🖥️ 页面级视图 (配合 Vue Router 使用)
 │   ├── front/
-│   │   ├── Home.vue    # 前台首页 (原 GameHome.vue 的主体)
+│   │   ├── gamesHome.vue    # 前台首页 (原 GameHome.vue 的主体)
 │   │   └── Detail.vue  # 游戏详情 (原 CategoryDetail.vue)
 │   └── admin/
 │       ├── Dashboard.vue
