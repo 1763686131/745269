@@ -150,17 +150,17 @@
           </div>
           
           <input 
-            v-model="searchKeyword"
+            v-model="searchQuery"
             type="text"
             :placeholder="t.placeholder"
             class="search-core-input"
-            @keyup.enter="handleSearch"
+            @keyup.enter="executeSearch"
           />
           
           <button 
             class="search-go-btn" 
             :class="{ 'is-disabled': searchCooldown > 0 }"
-            @click="handleSearch"
+            @click="executeSearch"
           >
             {{ searchCooldown > 0 ? `${searchCooldown}s` : 'GO' }}
           </button>
@@ -178,24 +178,25 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useGameStore } from '@/store/gameStore' // 引入全局 Store
+// 🌟 引入全局的 gameStore，拿来复用你在后台写好的那个搜索引擎！
+import { useGameStore } from '@/store/gameStore'
 
-// 初始化 Store 和基础变量
 const gameStore = useGameStore()
-const searchKeyword = ref('')
+
+const searchQuery = ref('')
 const isMobileMenuOpen = ref(false)
 
-// ==================== 🛡️ 核心防刷与搜索逻辑 ====================
+// ==================== 🛡️ 搜索防抖与本地持久化逻辑 ====================
 const searchCooldown = ref(0)
 let cooldownTimer = null
 
 onMounted(() => {
-  // 如果当前没有任何游戏数据，静默向后端拉取一次供搜索使用
+  // 页面加载时，如果本地 pinia 里没数据，就先去拉取一次供搜索用
   if (gameStore.allGames.length === 0) {
     gameStore.fetchGames()
   }
 
-  // 页面加载时，检查 localStorage 里的独立解禁时间戳
+  // 恢复本地存储的冷却倒计时
   const untilTime = localStorage.getItem('frontSearchCooldownUntil')
   if (untilTime) {
     const now = Date.now()
@@ -208,7 +209,7 @@ onMounted(() => {
   }
 })
 
-// 启动倒计时的通用函数
+// 启动倒计时函数
 const startCooldown = (secondsRemaining) => {
   searchCooldown.value = secondsRemaining
   if (cooldownTimer) clearInterval(cooldownTimer)
@@ -222,24 +223,24 @@ const startCooldown = (secondsRemaining) => {
   }, 1000)
 }
 
-// 执行搜索的核心方法
-const handleSearch = () => {
-  if (!searchKeyword.value.trim()) return
+// 🌟 执行搜索 (调用你在 store 里写好的那个方法)
+const executeSearch = () => {
+  if (!searchQuery.value.trim()) return
 
-  // 1. 冷却期拦截
+  // 拦截正在冷却的情况
   if (searchCooldown.value > 0) {
     alert(`搜索引擎充能中，请等待 ${searchCooldown.value} 秒后再试！`)
     return
   }
 
-  // 2. 调用全局管家方法进行双语匹配
-  const results = gameStore.searchGames(searchKeyword.value)
+  // 👇 这里调用了你在 store 里封装好的本地查找方法
+  const results = gameStore.searchGames(searchQuery.value)
   
-  // 3. 在控制台极客式打印真实返回结果！
-  console.log(`%c🔎 搜索关键词: [${searchKeyword.value}]`, 'color: #2563eb; font-weight: bold; font-size: 14px;')
+  // 💡 在控制台打印出获取到的数据
+  console.log(`%c🔎 搜索关键词: [${searchQuery.value}]`, 'color: #2563eb; font-weight: bold; font-size: 14px;')
   console.log('%c👉 数据库匹配结果如下：', 'color: #10b981; font-weight: bold;', results)
 
-  // 4. 写入倒计时并存入物理硬盘
+  // 开始新一轮 10 秒倒计时防刷
   const until = Date.now() + 10000 
   localStorage.setItem('frontSearchCooldownUntil', until.toString())
   startCooldown(10)
@@ -276,7 +277,6 @@ const t = computed(() => i18n[currentLang.value])
 const toggleLang = () => {
   currentLang.value = currentLang.value === 'zh' ? 'en' : 'zh'
 }
-// =========================================================
 
 const handlePlatformClick = (platform) => {
   console.log(`已选择平台: ${platform}`)
@@ -371,7 +371,6 @@ const handlePlatformClick = (platform) => {
 .color-classic { color: #8b5cf6; } 
 .color-goty { color: #eab308; }    
 
-/* --- 🌐 新增：语言切换按钮样式 --- */
 .lang-toggle-btn {
   background: transparent;
   color: #64748b;
@@ -520,16 +519,16 @@ const handlePlatformClick = (platform) => {
   font-weight: 800;
   cursor: pointer;
   letter-spacing: 1px;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 .search-go-btn:hover:not(.is-disabled) { background-color: #1d4ed8; }
 
-/* 🌟 核心防刷冷却样式 */
+/* 🌟 新增：按钮禁用的冷却样式 */
 .search-go-btn.is-disabled {
   background-color: #cbd5e1;
   color: #f8fafc;
   cursor: not-allowed;
-  padding: 0 30px; /* 文字变了，稍微调紧一点防变形 */
+  padding: 0 30px; 
 }
 
 .global-footer {
