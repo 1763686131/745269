@@ -68,17 +68,19 @@
           <button class="lang-toggle-btn" @click="toggleLang">
             {{ currentLang === 'zh' ? 'EN' : '中文' }}
           </button>
-          <nav class="desktop-navigation hide-on-mobile">
+          <!-- <nav class="desktop-navigation hide-on-mobile">
             <button class="platform-btn" @click="handlePlatformClick('SWITCH')">SWITCH</button>
             <button class="platform-btn" @click="handlePlatformClick('PC')">PC</button>
             <button class="platform-btn" @click="handlePlatformClick('PS4')">PS4</button>
-          </nav>
+          </nav> -->
           <button class="mobile-hamburger-trigger" :class="{ 'menu-is-active': isMobileMenuOpen }" @click="isMobileMenuOpen = !isMobileMenuOpen">
             <span class="bar-line"></span><span class="bar-line"></span><span class="bar-line"></span>
           </button>
         </div>
       </div>
 
+
+      <!-- 移动端下拉菜单 -->
       <transition name="menu-slide">
         <div v-if="isMobileMenuOpen" class="mobile-dropdown-menu">
           <div class="mobile-categories">
@@ -89,11 +91,11 @@
             <a href="#" class="mobile-nav-item">{{ t.goty }}</a>
           </div>
           <div class="mobile-divider"></div>
-          <div class="mobile-platforms">
+          <!-- <div class="mobile-platforms">
             <button class="mobile-menu-item" @click="handlePlatformClick('SWITCH'); isMobileMenuOpen = false">SWITCH</button>
             <button class="mobile-menu-item" @click="handlePlatformClick('PC'); isMobileMenuOpen = false">PC</button>
             <button class="mobile-menu-item" @click="handlePlatformClick('PS4'); isMobileMenuOpen = false">PS4</button>
-          </div>
+          </div> -->
         </div>
       </transition>
     </header>
@@ -451,7 +453,10 @@ const handlePlatformClick = (platform) => {
   display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700;
   color: #64748b; text-decoration: none; transition: color 0.2s ease;
 }
-.nav-item:hover { color: #0f172a; }
+/* 鼠标悬浮效果 */
+.nav-item:hover {
+  color: var(--text-heading);
+}
 
 .cute-icon { width: 22px; height: 22px; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .nav-item:hover .cute-icon { transform: scale(1.15) rotate(-8deg); }
@@ -486,13 +491,14 @@ const handlePlatformClick = (platform) => {
 }
 
 .navbar-right { display: flex; align-items: center; }
-.desktop-navigation { display: flex; gap: 16px; }
-.platform-btn {
+/* .desktop-navigation { display: flex; gap: 16px; } */
+
+/* .platform-btn {
   background: transparent; color: #2563eb; border: 1px solid #e0f2fe;
   padding: 8px 24px; font-size: 20px; font-weight: 700; border-radius: 8px;
   cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.platform-btn:hover { background-color: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 4px 14px rgba(37, 99, 211, 0.18); }
+.platform-btn:hover { background-color: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 4px 14px rgba(37, 99, 211, 0.18); } */
 
 .mobile-hamburger-trigger { display: none; background: transparent; border: none; width: 26px; height: 18px; flex-direction: column; justify-content: space-between; padding: 0; cursor: pointer; }
 .bar-line { display: block; width: 100%; height: 2.5px; background-color: #1e293b; transition: transform 0.3s ease, opacity 0.3s ease; }
@@ -562,9 +568,22 @@ const handlePlatformClick = (platform) => {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.result-text { color: #64748b; font-size: 18px; font-weight: 600; line-height: 1.6; }
+
 .title-spacing { margin-bottom: 30px; text-align: left; }
-.result-text .highlight { color: #0f172a; font-weight: 900; }
+
+/* 结果文字样式 */
+.result-text { 
+  color: var(--text-muted); 
+  font-size: 18px; 
+  font-weight: 600; 
+  line-height: 1.6; 
+}
+
+.result-text .highlight { 
+  color: var(--text-heading); /* 关键修复：从死黑改为动态变量 */
+  font-weight: 900; 
+}
+
 .text-blue { color: #2563eb !important; }
 
 /* 游戏卡片网格样式 */
@@ -676,9 +695,11 @@ const handlePlatformClick = (platform) => {
   .mobile-categories { display: flex; flex-direction: column; gap: 16px; padding-bottom: 20px; }
   .mobile-nav-item { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; color: #475569; text-decoration: none; }
   .mobile-divider { width: 100%; height: 1px; background-color: #f1f5f9; margin-bottom: 20px; }
-  .mobile-platforms { display: flex; flex-direction: column; gap: 14px; }
-  .mobile-menu-item { width: 100%; background-color: #f8fafc; color: #2563eb; border: 1px solid #e2e8f0; padding: 14px 0; font-size: 15px; font-weight: 700; border-radius: 10px; cursor: pointer; }
-  .mobile-menu-item:active { background-color: #2563eb; color: #ffffff; }
+
+  /*  */
+  /* .mobile-platforms { display: flex; flex-direction: column; gap: 14px; } */
+  /* .mobile-menu-item { width: 100%; background-color: #f8fafc; color: #2563eb; border: 1px solid #e2e8f0; padding: 14px 0; font-size: 15px; font-weight: 700; border-radius: 10px; cursor: pointer; }
+  .mobile-menu-item:active { background-color: #2563eb; color: #ffffff; } */
 
   .center-search-section { padding: 0 20px; }
   
@@ -686,7 +707,7 @@ const handlePlatformClick = (platform) => {
   .search-content-wrapper.is-searched { margin-top: 20px; }
   .magnifier-icon { width: 20px; height: 20px; }
   .search-go-btn { padding: 0 28px; font-size: 15px; }
-
+/* 卡片 */
   .game-grid-layout { grid-template-columns: 1fr; } 
   .menu-slide-enter-active, .menu-slide-leave-active { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
   .menu-slide-enter-from, .menu-slide-leave-to { opacity: 0; transform: translateY(-15px); }
