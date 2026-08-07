@@ -66,3 +66,10 @@ src/
 npx wrangler dev
 
 ```
+
+
+### 运行数据库的表
+
+```bash
+npx wrangler d1 execute games --local --file=./schema.sql
+```
