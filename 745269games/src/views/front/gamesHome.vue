@@ -178,7 +178,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-// 🌟 引入全局的 gameStore，拿来复用你在后台写好的那个搜索引擎！
 import { useGameStore } from '@/store/gameStore'
 
 const gameStore = useGameStore()
@@ -191,11 +190,6 @@ const searchCooldown = ref(0)
 let cooldownTimer = null
 
 onMounted(() => {
-  // 页面加载时，如果本地 pinia 里没数据，就先去拉取一次供搜索用
-  if (gameStore.allGames.length === 0) {
-    gameStore.fetchGames()
-  }
-
   // 恢复本地存储的冷却倒计时
   const untilTime = localStorage.getItem('frontSearchCooldownUntil')
   if (untilTime) {
@@ -209,7 +203,6 @@ onMounted(() => {
   }
 })
 
-// 启动倒计时函数
 const startCooldown = (secondsRemaining) => {
   searchCooldown.value = secondsRemaining
   if (cooldownTimer) clearInterval(cooldownTimer)
@@ -223,27 +216,29 @@ const startCooldown = (secondsRemaining) => {
   }, 1000)
 }
 
-// 🌟 执行搜索 (调用你在 store 里写好的那个方法)
-const executeSearch = () => {
+// 🌟 核心修复：改为 async 异步函数，调用真实的服务端搜索接口！
+const executeSearch = async () => {
   if (!searchQuery.value.trim()) return
 
-  // 拦截正在冷却的情况
+  // 1. 冷却期拦截
   if (searchCooldown.value > 0) {
     alert(`搜索引擎充能中，请等待 ${searchCooldown.value} 秒后再试！`)
     return
   }
 
-  // 👇 这里调用了你在 store 里封装好的本地查找方法
-  const results = gameStore.searchGames(searchQuery.value)
-  
-  // 💡 在控制台打印出获取到的数据
-  console.log(`%c🔎 搜索关键词: [${searchQuery.value}]`, 'color: #2563eb; font-weight: bold; font-size: 14px;')
-  console.log('%c👉 数据库匹配结果如下：', 'color: #10b981; font-weight: bold;', results)
-
-  // 开始新一轮 10 秒倒计时防刷
+  // 2. 先锁定按钮开启倒计时 (防止网络卡顿时玩家疯狂连点)
   const until = Date.now() + 10000 
   localStorage.setItem('frontSearchCooldownUntil', until.toString())
   startCooldown(10)
+
+  // 3. 打印发送状态
+  console.log(`%c🚀 正在向服务器发送查询: [${searchQuery.value}]...`, 'color: #f59e0b; font-weight: bold; font-size: 14px;')
+
+  // 👇 4. 调用你在 store 里留好的服务端搜索 API (穿透分页限制，查全库)
+  const results = await gameStore.fetchSearchFromServer(searchQuery.value)
+  
+  // 💡 5. 打印出数据库真实匹配返回的结果！
+  console.log('%c👉 数据库全局匹配结果如下：', 'color: #10b981; font-weight: bold;', results)
 }
 
 // ==================== 🌐 语言包与切换逻辑 ====================
@@ -282,7 +277,6 @@ const handlePlatformClick = (platform) => {
   console.log(`已选择平台: ${platform}`)
 }
 </script>
-
 <style scoped>
 /* ==================== 全局重置 ==================== */
 :global(html), :global(body), :global(#app) {

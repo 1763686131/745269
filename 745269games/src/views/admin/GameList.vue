@@ -1,6 +1,5 @@
 <template>
   <div class="admin-layout">
-    
     <aside class="sidebar">
       <div class="logo-area">
         <div class="logo-box">745269</div>
@@ -27,7 +26,6 @@
     </aside>
 
     <main class="main-content">
-      
       <header class="top-header">
         <div class="breadcrumb">
           <span class="text-gray">主菜单</span>
@@ -36,7 +34,6 @@
         </div>
 
         <div class="header-actions">
-          
           <div class="search-wrapper">
             <div class="search-box">
               <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -59,7 +56,6 @@
               {{ searchCooldown > 0 ? `搜索(${searchCooldown}s)` : '搜索' }}
             </button>
           </div>
-
           <button class="action-btn login-btn">管理账号</button>
         </div>
       </header>
@@ -85,7 +81,7 @@
 
             <div 
               class="table-row" 
-              v-for="game in filteredTableData" 
+              v-for="game in displayedData" 
               :key="game.id"
             >
               <div class="col-game game-info">
@@ -104,13 +100,7 @@
               
               <div class="col-cat">
                 <div class="cat-tags-grid">
-                  <span 
-                    v-for="(tag, tIdx) in formatTags(game.tags)" 
-                    :key="tIdx" 
-                    class="cat-tag"
-                  >
-                    [{{ tag }}]
-                  </span>
+                  <span v-for="(tag, tIdx) in formatTags(game.tags)" :key="tIdx" class="cat-tag">[{{ tag }}]</span>
                 </div>
                 <span v-if="formatTags(game.tags).length === 0" class="empty-text">-</span>
               </div>
@@ -126,13 +116,7 @@
                     {{ versionGroup.versionLabel }}
                   </div>
                   <div class="disk-tags-small">
-                    <span 
-                      v-for="disk in versionGroup.disks" 
-                      :key="disk" 
-                      :class="['disk-tag', getDiskClass(disk)]"
-                    >
-                      [{{ disk }}]
-                    </span>
+                    <span v-for="disk in versionGroup.disks" :key="disk" :class="['disk-tag', getDiskClass(disk)]">[{{ disk }}]</span>
                   </div>
                 </div>
                 <span v-if="getVersionedDisks(game.id).length === 0" class="empty-text">-</span>
@@ -148,17 +132,21 @@
               </div>
             </div>
 
-            <div v-if="gameStore.isLoading" class="loading-tip">数据同步中...</div>
-            <div v-if="!gameStore.isLoading && filteredTableData.length === 0 && !activeSearchKeyword" class="loading-tip">暂无游戏数据，请点击上方“上传游戏”</div>
-            <div v-if="!gameStore.isLoading && filteredTableData.length === 0 && activeSearchKeyword" class="loading-tip">
-              没有找到名称中包含 "{{ activeSearchKeyword }}" 的游戏 🥲
+            <div class="load-more-wrapper" v-if="!activeSearchKeyword && gameStore.hasMore && displayedData.length >= 10">
+              <button class="btn-load-more" @click="gameStore.fetchGames(true)">
+                {{ gameStore.isLoading ? '加载中...' : '加载更多条目 ⚡' }}
+              </button>
             </div>
+
+            <div v-if="gameStore.isLoading && displayedData.length === 0" class="loading-tip">数据同步中...</div>
+            <div v-if="!gameStore.isLoading && displayedData.length === 0 && !activeSearchKeyword" class="loading-tip">暂无游戏数据，请点击上方“上传游戏”</div>
+            <div v-if="!gameStore.isLoading && displayedData.length === 0 && activeSearchKeyword" class="loading-tip">没有找到名称中包含 "{{ activeSearchKeyword }}" 的游戏 🥲</div>
+            <div v-if="!gameStore.hasMore && displayedData.length > 0 && !activeSearchKeyword" class="loading-tip">- 已经到底啦 -</div>
           </div>
         </div>
       </div>
-
     </main>
-     <!-- 游戏表单模态框 -->
+    <!-- 游戏表单模态框 -->
     <GameFormModal :visible="isModalVisible"  :gameData="currentEditData" @update:visible="isModalVisible = $event" @submit="handleSave"/>
   </div>
 </template>
@@ -176,45 +164,39 @@ const currentEditData = ref(null)
 const searchInput = ref('')
 const activeSearchKeyword = ref('') 
 
-// 🌟 倒计时变量
+// 🌟 独立存储在后台组件里的搜索结果
+const adminSearchResults = ref([])
+
 const searchCooldown = ref(0)
 let cooldownTimer = null
 
-// 🌟 新增：统一的倒计时启动函数
 const startCooldown = (secondsRemaining) => {
   searchCooldown.value = secondsRemaining
   if (cooldownTimer) clearInterval(cooldownTimer)
-  
   cooldownTimer = setInterval(() => {
     searchCooldown.value--
     if (searchCooldown.value <= 0) {
       clearInterval(cooldownTimer)
-      // 倒计时结束，清理本地存储
       localStorage.removeItem('searchCooldownUntil')
     }
   }, 1000)
 }
 
 onMounted(() => {
-  gameStore.fetchGames()
+  // 页面进入时，默认发起首屏(前10条)的分页请求，传 false 表示不是加载更多，是重置拉取
+  gameStore.fetchGames(false)
   
-  // 🌟 核心防御：页面刚加载（或刷新）时，检查 localStorage 里的解禁时间戳
   const untilTime = localStorage.getItem('searchCooldownUntil')
   if (untilTime) {
     const now = Date.now()
     const remaining = Math.ceil((parseInt(untilTime) - now) / 1000)
-    
-    // 如果解禁时间在未来，说明还在冷却中，继续启动倒计时！
-    if (remaining > 0) {
-      startCooldown(remaining)
-    } else {
-      localStorage.removeItem('searchCooldownUntil')
-    }
+    if (remaining > 0) startCooldown(remaining)
+    else localStorage.removeItem('searchCooldownUntil')
   }
 })
 
-// 执行搜索
-const handleSearch = () => {
+// 🌟 执行搜索 (向服务端发请求)
+const handleSearch = async () => {
   if (searchCooldown.value > 0) {
     alert(`搜索过于频繁，请等待 ${searchCooldown.value} 秒后再试！`)
     return
@@ -222,17 +204,26 @@ const handleSearch = () => {
 
   activeSearchKeyword.value = searchInput.value
 
-  // 🌟 核心防御：记录解禁的绝对时间戳（当前时间 + 10秒）存入物理硬盘
   const until = Date.now() + 10000 
   localStorage.setItem('searchCooldownUntil', until.toString())
-  
-  // 启动倒计时UI
   startCooldown(10)
+
+  // 如果关键字不为空，向服务端发起搜索，并把结果存入 adminSearchResults
+  if (activeSearchKeyword.value) {
+    const rawResults = await gameStore.fetchSearchFromServer(activeSearchKeyword.value)
+    adminSearchResults.value = rawResults
+  } else {
+    adminSearchResults.value = []
+  }
 }
 
-const filteredTableData = computed(() => {
-  const rawMatchedGames = gameStore.searchGames(activeSearchKeyword.value)
-  return gameStore.formatAdminTableData(rawMatchedGames)
+// 🌟 视图展示数据源智能切换引擎
+const displayedData = computed(() => {
+  // 如果有搜索词，洗排搜索结果展示；如果没有搜索词，洗排分页累加结果展示
+  if (activeSearchKeyword.value) {
+    return gameStore.formatAdminTableData(adminSearchResults.value)
+  }
+  return gameStore.formatAdminTableData(gameStore.allGames)
 })
 
 const openAddModal = () => {
@@ -241,28 +232,26 @@ const openAddModal = () => {
 }
 
 const openEditModal = (gameId) => {
-  const targetGame = gameStore.allGames.find(g => g.id === gameId)
-  currentEditData.value = targetGame 
+  // 注意，修改时需要去原始源里找游戏对象
+  const sourceArray = activeSearchKeyword.value ? adminSearchResults.value : gameStore.allGames
+  currentEditData.value = sourceArray.find(g => g.id === gameId)
   isModalVisible.value = true        
 }
 
 const handleSave = async (formData) => {
   const success = await gameStore.saveGame(formData)
-  if (success) {
-    alert('游戏数据已成功入库并同步！')
-  }
+  if (success) alert('游戏数据已成功入库并同步！')
 }
 
 const formatTags = (tags) => {
   if (!tags || tags.length === 0) return []
-  const joinedStr = tags.join(',')
-  return joinedStr.split(/,|，/).map(t => t.trim()).filter(Boolean)
+  return tags.join(',').split(/,|，/).map(t => t.trim()).filter(Boolean)
 }
 
 const getVersionedDisks = (gameId) => {
-  const target = gameStore.allGames.find(g => g.id === gameId)
+  const sourceArray = activeSearchKeyword.value ? adminSearchResults.value : gameStore.allGames
+  const target = sourceArray.find(g => g.id === gameId)
   if (!target || !target.downloads) return []
-  
   const result = []
   target.downloads.forEach(dl => {
     const validSources = (dl.sources || []).filter(src => src.name)
@@ -271,9 +260,7 @@ const getVersionedDisks = (gameId) => {
       const platformName = dl.platform ? dl.platform.toUpperCase() : ''
       const editionName = dl.edition || '通用'
       let label = platformName ? `${platformName} ${editionName}` : editionName
-      if (!label.endsWith('版本') && !label.endsWith('版')) {
-        label += ' 版本'
-      }
+      if (!label.endsWith('版本') && !label.endsWith('版')) label += ' 版本'
       result.push({ versionLabel: label, disks: uniqueDisks })
     }
   })
@@ -288,6 +275,7 @@ const getDiskClass = (diskName) => {
   return 'tag-default'
 }
 </script>
+
 <style scoped>
 * {
   box-sizing: border-box;
@@ -450,7 +438,6 @@ const getDiskClass = (diskName) => {
   gap: 24px;
 }
 
-/* 🌟 核心修改 3：配合搜索按钮的新布局与样式 */
 .search-wrapper {
   display: flex;
   align-items: center;
@@ -484,10 +471,9 @@ const getDiskClass = (diskName) => {
 .search-input:focus {
   border-color: var(--color-admin-primary, #2DD4BF);
   box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.1);
-  width: 260px; /* 聚焦时稍微拉长，交互感更棒 */
+  width: 260px; 
 }
 
-/* 搜索按钮样式 */
 .btn-search {
   background-color: var(--text-heading, #1E293B);
   color: #ffffff;
@@ -505,7 +491,6 @@ const getDiskClass = (diskName) => {
   background-color: var(--color-admin-primary, #2DD4BF);
   box-shadow: 0 4px 12px -2px rgba(45, 212, 191, 0.4);
 }
-/* 冷却禁用状态 */
 .btn-search.is-disabled {
   background-color: var(--border-dark, #CBD5E1);
   color: var(--text-main, #334155);
@@ -729,6 +714,28 @@ const getDiskClass = (diskName) => {
   box-shadow: 0 4px 10px -2px rgba(249, 115, 22, 0.3);
 }
 .btn-delete:hover { opacity: 0.9; }
+
+/* 🌟 新增：加载更多按钮包装器样式 */
+.load-more-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 30px 0 10px 0;
+}
+.btn-load-more {
+  background: var(--bg-hover, #F8FAFC);
+  border: 1px solid var(--border-dark, #CBD5E1);
+  color: var(--text-main, #334155);
+  padding: 10px 32px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-load-more:hover {
+  background: #F1F5F9;
+  border-color: var(--text-light, #94A3B8);
+}
 
 .loading-tip {
   text-align: center;

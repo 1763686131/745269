@@ -1,6 +1,6 @@
 <script setup>
   // import GameList from './views/admin/GameList.vue'
-    import gameshome from './views/front/gameshome.vue'
+    import gameshome from '@/views/front/gameshome.vue'
 </script>
 
 <template>
