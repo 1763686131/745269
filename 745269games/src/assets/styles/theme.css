@@ -11,7 +11,7 @@
   --color-admin-hover: #34D399;
 
   /* 2. 背景色 (Background) */
-  --bg-body: #ffffff;             /* 前台大背景 */
+  --bg-body: #e8edf1;             /* 前台大背景 */
   --bg-admin-body: #F6F8FA;       /* 后台大背景灰 */
   --bg-card: #ffffff;             /* 卡片纯白背景 */
   --bg-hover: #F8FAFC;            /* 列表悬浮浅灰 */
