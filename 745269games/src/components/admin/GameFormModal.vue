@@ -188,13 +188,11 @@ const formData = ref({})
 // 🌟 语言支持和分类的临时字符串
 const tempLanguages = ref('')
 const tempGenres = ref('')
-
-// 🌟 临时截图外链输入框
+// 临时截图外链输入框
 const tempScreenshotUrl = ref('')
 
 // 平台互斥配置
 const platformOptions = ['Switch', 'PS5', 'PS4', 'PC']
-
 const isPlatformDisabled = (plat, currentIndex) => {
   return formData.value.downloads?.some((dl, index) => index !== currentIndex && dl.platform === plat)
 }
@@ -204,7 +202,7 @@ const getDefaultData = () => ({
   uuid: 'uuid_' + Date.now().toString(36) + Math.random().toString(36).substring(2),
   title: { zh_CN: '', en_US: '' },
   description: '',
-  languages: [], // 🌟 已将 aliases 替换为 languages
+  aliases: [], // 🌟 核心修复：这里恢复为 aliases，以便和后端数据库完美对接
   media: { cover: '', screenshots: [] },
   metadata: { platforms: [], genres: [] },
   downloads: [],
@@ -217,12 +215,13 @@ watch(showModal, (newVal) => {
     if (props.gameData) {
       formData.value = JSON.parse(JSON.stringify(props.gameData))
       if (!formData.value.description) formData.value.description = ''
-      if (!formData.value.languages) formData.value.languages = [] // 兼容旧数据
+      // 🌟 核心修复：兼容旧数据，读取 aliases 字段
+      if (!formData.value.aliases) formData.value.aliases = [] 
       if (!formData.value.media) formData.value.media = { cover: '', screenshots: [] }
       if (!formData.value.media.screenshots) formData.value.media.screenshots = []
       
-      // 数据回显
-      tempLanguages.value = formData.value.languages.join(', ')
+      // 数据回显：把后端的 aliases 数组转成字符串，赋值给前端界面的语言输入框
+      tempLanguages.value = formData.value.aliases.join(', ')
       tempGenres.value = formData.value.metadata?.genres?.join(', ') || ''
       tempScreenshotUrl.value = ''
     } else {
@@ -234,10 +233,8 @@ watch(showModal, (newVal) => {
   }
 })
 
-// 图片加载失败的优雅处理
 const handleImgError = (e) => {
-  // 如果外链失效或输入错误，可以显示一个默认破损图提示，避免白板
-  // e.target.src = 'https://via.placeholder.com/140x180?text=Image+Error'
+  // 图片加载失败的优雅处理
 }
 
 // 🌟 添加截图外链的方法
@@ -245,46 +242,13 @@ const addScreenshotUrl = () => {
   const url = tempScreenshotUrl.value.trim()
   if (url) {
     formData.value.media.screenshots.push(url)
-    tempScreenshotUrl.value = '' // 添加后清空输入框，方便粘贴下一个
+    tempScreenshotUrl.value = '' // 添加后清空输入框
   }
 }
 
 const removeScreenshot = (index) => {
   formData.value.media.screenshots.splice(index, 1)
 }
-
-/* ========================================================================
-【旧版】本地图片上传代码 (已为你注释保留，方便以后换回)
-========================================================================
-const coverInput = ref(null)
-const screenshotsInput = ref(null)
-
-const triggerCoverUpload = () => coverInput.value?.click()
-const handleCoverChange = async (e) => {
-  const file = e.target.files?.[0]
-  if (file) {
-    formData.value.media.cover = URL.createObjectURL(file)
-    // const realUrl = await gameStore.uploadImage(file)
-    // if (realUrl) formData.value.media.cover = realUrl
-  }
-  e.target.value = null
-}
-
-const triggerScreenshotsUpload = () => screenshotsInput.value?.click()
-const handleScreenshotsChange = async (e) => {
-  const files = e.target.files
-  if (files && files.length > 0) {
-    for (let file of files) {
-      const tempUrl = URL.createObjectURL(file)
-      formData.value.media.screenshots.push(tempUrl)
-      // const realUrl = await gameStore.uploadImage(file)
-      // if (realUrl) formData.value.media.screenshots[formData.value.media.screenshots.indexOf(tempUrl)] = realUrl
-    }
-  }
-  e.target.value = null
-}
-========================================================================
-*/
 
 // 下载版本增删
 const addDownload = () => {
@@ -309,8 +273,8 @@ const handleClose = () => {
 }
 
 const handleSubmit = () => {
-  // 把文本框的逗号分隔数据组装回数组
-  formData.value.languages = tempLanguages.value.split(',').map(s => s.trim()).filter(Boolean)
+  // 🌟 核心修复：保存时，将填写的语言文字装回 aliases 字段发送给后端
+  formData.value.aliases = tempLanguages.value.split(',').map(s => s.trim()).filter(Boolean)
   formData.value.metadata.genres = tempGenres.value.split(',').map(s => s.trim()).filter(Boolean)
   formData.value.metadata.platforms = formData.value.downloads.map(dl => dl.platform).filter(Boolean)
 
@@ -318,7 +282,6 @@ const handleSubmit = () => {
   handleClose()
 }
 </script>
-
 <style scoped>
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;

@@ -36,13 +36,30 @@
         </div>
 
         <div class="header-actions">
-          <div class="search-box">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" placeholder="在此处搜索游戏..." class="search-input">
+          
+          <div class="search-wrapper">
+            <div class="search-box">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input 
+                type="text" 
+                v-model="searchInput" 
+                @keyup.enter="handleSearch"
+                placeholder="在此处输入中/英文搜索..." 
+                class="search-input"
+              >
+            </div>
+            <button 
+              class="btn-search" 
+              :class="{ 'is-disabled': searchCooldown > 0 }"
+              @click="handleSearch"
+            >
+              {{ searchCooldown > 0 ? `搜索(${searchCooldown}s)` : '搜索' }}
+            </button>
           </div>
+
           <button class="action-btn login-btn">管理账号</button>
         </div>
       </header>
@@ -59,14 +76,16 @@
             <div class="table-header">
               <div class="col-game">游戏</div>
               <div class="col-date">上架日期</div>
-              <div class="col-cat">平台/分类</div>
-              <div class="col-downloads">下载量</div>
+              <div class="col-platform">平台</div>
+              <div class="col-cat">分类</div> 
+              <div class="col-disk">网盘资源</div> 
+              <div class="col-downloads">真实下载量</div> 
               <div class="col-actions">管理</div>
             </div>
 
             <div 
               class="table-row" 
-              v-for="game in gameStore.adminTableData" 
+              v-for="game in filteredTableData" 
               :key="game.id"
             >
               <div class="col-game game-info">
@@ -77,11 +96,52 @@
                 </div>
               </div>
               <div class="col-date date-text">{{ game.date }}</div>
-              <div class="col-cat cat-text">
+              
+              <div class="col-platform cat-text">
                 <strong v-for="plat in game.platforms" :key="plat">{{ plat }} </strong>
-                <p><span v-for="tag in game.tags" :key="tag">[{{ tag }}] </span></p>
+                <span v-if="!game.platforms || game.platforms.length === 0" class="empty-text">-</span>
               </div>
-              <div class="col-downloads empty-text">{{ game.downloads || '-' }}</div>
+              
+              <div class="col-cat">
+                <div class="cat-tags-grid">
+                  <span 
+                    v-for="(tag, tIdx) in formatTags(game.tags)" 
+                    :key="tIdx" 
+                    class="cat-tag"
+                  >
+                    [{{ tag }}]
+                  </span>
+                </div>
+                <span v-if="formatTags(game.tags).length === 0" class="empty-text">-</span>
+              </div>
+
+              <div class="col-disk version-disk-list">
+                <div 
+                  v-for="(versionGroup, idx) in getVersionedDisks(game.id)" 
+                  :key="idx" 
+                  class="version-disk-item"
+                >
+                  <div class="version-label">
+                    <span class="dot">•</span>
+                    {{ versionGroup.versionLabel }}
+                  </div>
+                  <div class="disk-tags-small">
+                    <span 
+                      v-for="disk in versionGroup.disks" 
+                      :key="disk" 
+                      :class="['disk-tag', getDiskClass(disk)]"
+                    >
+                      [{{ disk }}]
+                    </span>
+                  </div>
+                </div>
+                <span v-if="getVersionedDisks(game.id).length === 0" class="empty-text">-</span>
+              </div>
+
+              <div class="col-downloads download-count-text">
+                {{ game.downloadCount || 0 }} <span class="unit">次</span>
+              </div>
+
               <div class="col-actions btn-group">
                 <button class="btn-modify" @click="openEditModal(game.id)">修改</button>
                 <button class="btn-delete" @click="gameStore.deleteGame(game.id)">下架</button>
@@ -89,59 +149,145 @@
             </div>
 
             <div v-if="gameStore.isLoading" class="loading-tip">数据同步中...</div>
-            <div v-if="!gameStore.isLoading && gameStore.adminTableData.length === 0" class="loading-tip">暂无游戏数据，请点击上方“上传游戏”</div>
+            <div v-if="!gameStore.isLoading && filteredTableData.length === 0 && !activeSearchKeyword" class="loading-tip">暂无游戏数据，请点击上方“上传游戏”</div>
+            <div v-if="!gameStore.isLoading && filteredTableData.length === 0 && activeSearchKeyword" class="loading-tip">
+              没有找到名称中包含 "{{ activeSearchKeyword }}" 的游戏 🥲
+            </div>
           </div>
         </div>
       </div>
 
     </main>
-
-    <GameFormModal :visible="isModalVisible" :gameData="currentEditData" @update:visible="val => isModalVisible = val" @submit="handleSave"/>
+     <!-- 游戏表单模态框 -->
+    <GameFormModal :visible="isModalVisible"  :gameData="currentEditData" @update:visible="isModalVisible = $event" @submit="handleSave"/>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import GameFormModal from '@/components/admin/GameFormModal.vue' 
 
 const gameStore = useGameStore()
 
-// 控制弹窗的显示隐藏
 const isModalVisible = ref(false)
-// 当前编辑的数据（null 表示处于新增模式）
 const currentEditData = ref(null)
 
-// 页面挂载时拉取服务端最新数据
+const searchInput = ref('')
+const activeSearchKeyword = ref('') 
+
+// 🌟 倒计时变量
+const searchCooldown = ref(0)
+let cooldownTimer = null
+
+// 🌟 新增：统一的倒计时启动函数
+const startCooldown = (secondsRemaining) => {
+  searchCooldown.value = secondsRemaining
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  
+  cooldownTimer = setInterval(() => {
+    searchCooldown.value--
+    if (searchCooldown.value <= 0) {
+      clearInterval(cooldownTimer)
+      // 倒计时结束，清理本地存储
+      localStorage.removeItem('searchCooldownUntil')
+    }
+  }, 1000)
+}
+
 onMounted(() => {
   gameStore.fetchGames()
+  
+  // 🌟 核心防御：页面刚加载（或刷新）时，检查 localStorage 里的解禁时间戳
+  const untilTime = localStorage.getItem('searchCooldownUntil')
+  if (untilTime) {
+    const now = Date.now()
+    const remaining = Math.ceil((parseInt(untilTime) - now) / 1000)
+    
+    // 如果解禁时间在未来，说明还在冷却中，继续启动倒计时！
+    if (remaining > 0) {
+      startCooldown(remaining)
+    } else {
+      localStorage.removeItem('searchCooldownUntil')
+    }
+  }
 })
 
-// 1. 打开新增弹窗
+// 执行搜索
+const handleSearch = () => {
+  if (searchCooldown.value > 0) {
+    alert(`搜索过于频繁，请等待 ${searchCooldown.value} 秒后再试！`)
+    return
+  }
+
+  activeSearchKeyword.value = searchInput.value
+
+  // 🌟 核心防御：记录解禁的绝对时间戳（当前时间 + 10秒）存入物理硬盘
+  const until = Date.now() + 10000 
+  localStorage.setItem('searchCooldownUntil', until.toString())
+  
+  // 启动倒计时UI
+  startCooldown(10)
+}
+
+const filteredTableData = computed(() => {
+  const rawMatchedGames = gameStore.searchGames(activeSearchKeyword.value)
+  return gameStore.formatAdminTableData(rawMatchedGames)
+})
+
 const openAddModal = () => {
-  console.log("👉 触发了上传游戏按钮，准备打开弹窗！")
   currentEditData.value = null 
   isModalVisible.value = true  
 }
 
-// 2. 打开修改弹窗
 const openEditModal = (gameId) => {
-  console.log("👉 触发了修改游戏按钮，准备修改 ID:", gameId)
   const targetGame = gameStore.allGames.find(g => g.id === gameId)
   currentEditData.value = targetGame 
   isModalVisible.value = true        
 }
 
-// 3. 监听弹窗内部点击“确认保存”抛出的事件
 const handleSave = async (formData) => {
-  console.log("👉 接收到了弹窗传来的数据，准备提交给服务端：", formData)
   const success = await gameStore.saveGame(formData)
   if (success) {
     alert('游戏数据已成功入库并同步！')
   }
 }
-</script>
 
+const formatTags = (tags) => {
+  if (!tags || tags.length === 0) return []
+  const joinedStr = tags.join(',')
+  return joinedStr.split(/,|，/).map(t => t.trim()).filter(Boolean)
+}
+
+const getVersionedDisks = (gameId) => {
+  const target = gameStore.allGames.find(g => g.id === gameId)
+  if (!target || !target.downloads) return []
+  
+  const result = []
+  target.downloads.forEach(dl => {
+    const validSources = (dl.sources || []).filter(src => src.name)
+    if (validSources.length > 0) {
+      const uniqueDisks = Array.from(new Set(validSources.map(src => src.name)))
+      const platformName = dl.platform ? dl.platform.toUpperCase() : ''
+      const editionName = dl.edition || '通用'
+      let label = platformName ? `${platformName} ${editionName}` : editionName
+      if (!label.endsWith('版本') && !label.endsWith('版')) {
+        label += ' 版本'
+      }
+      result.push({ versionLabel: label, disks: uniqueDisks })
+    }
+  })
+  return result
+}
+
+const getDiskClass = (diskName) => {
+  if (diskName.includes('百度')) return 'tag-baidu'
+  if (diskName.includes('夸克')) return 'tag-quark'
+  if (diskName.includes('阿里')) return 'tag-ali'
+  if (diskName.includes('天翼') || diskName.includes('迅雷')) return 'tag-tianyi'
+  return 'tag-default'
+}
+</script>
 <style scoped>
 * {
   box-sizing: border-box;
@@ -160,7 +306,6 @@ const handleSave = async (formData) => {
   text-align: left !important; 
 }
 
-/* ================= 左侧导航栏 ================= */
 .sidebar {
   width: 260px;
   background-color: var(--bg-card, #FFFFFF);
@@ -275,7 +420,6 @@ const handleSave = async (formData) => {
   border-radius: 2px;
 }
 
-/* ================= 右侧主区域 ================= */
 .main-content {
   flex: 1;
   display: flex;
@@ -283,7 +427,6 @@ const handleSave = async (formData) => {
   overflow: hidden;
 }
 
-/* 顶部 Header */
 .top-header {
   height: 80px;
   display: flex;
@@ -307,6 +450,13 @@ const handleSave = async (formData) => {
   gap: 24px;
 }
 
+/* 🌟 核心修改 3：配合搜索按钮的新布局与样式 */
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .search-box {
   position: relative;
 }
@@ -320,7 +470,7 @@ const handleSave = async (formData) => {
   color: var(--text-light, #94A3B8);
 }
 .search-input {
-  width: 260px;
+  width: 220px;
   height: 40px;
   padding: 0 16px 0 40px;
   border: 1px solid var(--border-main, #E2E8F0);
@@ -334,6 +484,33 @@ const handleSave = async (formData) => {
 .search-input:focus {
   border-color: var(--color-admin-primary, #2DD4BF);
   box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.1);
+  width: 260px; /* 聚焦时稍微拉长，交互感更棒 */
+}
+
+/* 搜索按钮样式 */
+.btn-search {
+  background-color: var(--text-heading, #1E293B);
+  color: #ffffff;
+  border: none;
+  padding: 0 24px;
+  height: 40px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+.btn-search:hover:not(.is-disabled) {
+  background-color: var(--color-admin-primary, #2DD4BF);
+  box-shadow: 0 4px 12px -2px rgba(45, 212, 191, 0.4);
+}
+/* 冷却禁用状态 */
+.btn-search.is-disabled {
+  background-color: var(--border-dark, #CBD5E1);
+  color: var(--text-main, #334155);
+  cursor: not-allowed;
+  opacity: 0.8;
 }
 
 .action-btn {
@@ -349,7 +526,6 @@ const handleSave = async (formData) => {
 .action-btn:hover { color: var(--text-heading, #1E293B); }
 .login-btn { font-size: 14px; font-weight: 600; }
 
-/* 核心工作区 */
 .workspace {
   flex: 1;
   overflow-y: auto;
@@ -395,12 +571,11 @@ const handleSave = async (formData) => {
   text-align: left;
 }
 
-/* 表格布局 */
 .table-container { width: 100%; text-align: left; }
 
 .table-header {
   display: grid;
-  grid-template-columns: 3fr 1.5fr 1.5fr 1fr 1.5fr;
+  grid-template-columns: 2fr 1fr 0.8fr 1.2fr 2fr 0.8fr 1fr;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border-light, #F1F5F9);
   font-size: 12px;
@@ -410,7 +585,7 @@ const handleSave = async (formData) => {
 
 .table-row {
   display: grid;
-  grid-template-columns: 3fr 1.5fr 1.5fr 1fr 1.5fr;
+  grid-template-columns: 2fr 1fr 0.8fr 1.2fr 2fr 0.8fr 1fr;
   align-items: center;
   padding: 20px 0;
   border-bottom: 1px solid var(--bg-hover, #F8FAFC);
@@ -420,7 +595,7 @@ const handleSave = async (formData) => {
   background-color: var(--bg-hover, #F8FAFC);
 }
 
-.col-game, .col-date, .col-cat, .col-downloads {
+.col-game, .col-date, .col-platform, .col-cat, .col-disk, .col-downloads {
   text-align: left;
 }
 
@@ -450,8 +625,82 @@ const handleSave = async (formData) => {
 
 .date-text { font-size: 13px; font-weight: 800; color: var(--text-main, #334155); }
 .cat-text strong { font-size: 13px; color: var(--text-main, #334155); display: inline-block; margin-right: 6px; }
-.cat-text p { font-size: 12px; color: var(--text-light, #94A3B8); font-weight: 600; }
+
+.cat-tags-grid {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: 4px 6px;
+}
+.cat-tag {
+  font-size: 12px;
+  color: var(--text-light, #94A3B8);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .empty-text { font-size: 14px; font-weight: 800; color: var(--text-light, #94A3B8); }
+
+.download-count-text {
+  font-size: 15px; 
+  font-weight: 800; 
+  color: var(--color-admin-primary, #2DD4BF);
+}
+.download-count-text .unit {
+  font-size: 12px;
+  color: var(--text-light, #94A3B8);
+  font-weight: 600;
+  margin-left: 2px;
+}
+
+.version-disk-list {
+  display: flex;
+  flex-direction: column; 
+  gap: 12px;
+}
+
+.version-disk-item {
+  display: flex;
+  flex-direction: column; 
+  gap: 4px; 
+}
+
+.version-label {
+  font-size: 12px;
+  color: var(--text-main, #334155);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.version-label .dot {
+  color: var(--color-admin-primary, #2DD4BF);
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.disk-tags-small {
+  display: flex;
+  flex-direction: column; 
+  align-items: flex-start;
+  gap: 4px;
+  padding-left: 12px; 
+}
+
+.disk-tag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tag-baidu { background-color: #EFF6FF; color: #3B82F6; border: 1px solid #BFDBFE; }
+.tag-quark { background-color: #FEF2F2; color: #E11D48; border: 1px solid #FECDD3; }
+.tag-ali { background-color: #FDF4FF; color: #D946EF; border: 1px solid #FBCFE8; }
+.tag-tianyi { background-color: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
+.tag-default { background-color: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; }
 
 .col-actions { text-align: left; }
 .btn-group {
