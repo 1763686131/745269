@@ -85,7 +85,7 @@
 
 <script setup>
 // 仅仅只需要引入仓库，页面逻辑彻底减负！
-import { useGameStore } from '../store/gameStore.js'
+import { useGameStore } from '@/store/gameStore.js'
 
 // 实例化仓库
 const gameStore = useGameStore()
