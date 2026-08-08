@@ -308,11 +308,13 @@ const getDiskClass = (diskName) => {
   align-items: center;
   padding: 0 24px;
   gap: 12px;
+  border-bottom: 1px solid var(--border-light, #F1F5F9);
 }
 
 .logo-box {
+  /* 自动反转：白天黑底白字，夜间白底黑字 */
   background-color: var(--text-heading, #1E293B);
-  color: var(--text-white, #FFFFFF);
+  color: var(--bg-card, #FFFFFF);
   padding: 4px 8px;
   border-radius: 6px;
   font-weight: 900;
@@ -398,7 +400,8 @@ const getDiskClass = (diskName) => {
 }
 
 .sub-item.active {
-  background-color: #E6FFF9; 
+  /* 动态主题适配：使用品牌色加极低透明度作为高亮底色 */
+  background-color: rgba(45, 212, 191, 0.1); 
   color: var(--color-admin-primary, #14B8A6); 
 }
 
@@ -463,6 +466,7 @@ const getDiskClass = (diskName) => {
   border: 1px solid var(--border-main, #E2E8F0);
   border-radius: 100px;
   background-color: var(--bg-card, #FFFFFF);
+  color: var(--text-main, #334155);
   font-size: 13px;
   outline: none;
   transition: all 0.3s;
@@ -475,8 +479,9 @@ const getDiskClass = (diskName) => {
 }
 
 .btn-search {
+  /* 自动反转按钮 */
   background-color: var(--text-heading, #1E293B);
-  color: #ffffff;
+  color: var(--bg-card, #ffffff);
   border: none;
   padding: 0 24px;
   height: 40px;
@@ -489,6 +494,7 @@ const getDiskClass = (diskName) => {
 }
 .btn-search:hover:not(.is-disabled) {
   background-color: var(--color-admin-primary, #2DD4BF);
+  color: #ffffff;
   box-shadow: 0 4px 12px -2px rgba(45, 212, 191, 0.4);
 }
 .btn-search.is-disabled {
@@ -525,7 +531,7 @@ const getDiskClass = (diskName) => {
 }
 .btn-upload {
   background: linear-gradient(135deg, var(--color-admin-primary, #2DD4BF) 0%, var(--color-admin-hover, #34D399) 100%);
-  color: var(--text-white, #FFFFFF);
+  color: #ffffff; /* 渐变底色建议保持白字 */
   font-size: 16px;
   font-weight: 800;
   border: none;
@@ -681,11 +687,12 @@ const getDiskClass = (diskName) => {
   white-space: nowrap;
 }
 
+/* 这部分硬编码颜色作为特定品牌的标签可以保留，也可以考虑将其提取为全局变量（如需随暗黑模式变化） */
 .tag-baidu { background-color: #EFF6FF; color: #3B82F6; border: 1px solid #BFDBFE; }
 .tag-quark { background-color: #FEF2F2; color: #E11D48; border: 1px solid #FECDD3; }
 .tag-ali { background-color: #FDF4FF; color: #D946EF; border: 1px solid #FBCFE8; }
 .tag-tianyi { background-color: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
-.tag-default { background-color: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; }
+.tag-default { background-color: var(--bg-hover); color: var(--text-muted); border: 1px solid var(--border-main); }
 
 .col-actions { text-align: left; }
 .btn-group {
@@ -699,7 +706,7 @@ const getDiskClass = (diskName) => {
   border-radius: 100px;
   font-size: 12px;
   font-weight: 800;
-  color: var(--text-white, #FFFFFF);
+  color: #FFFFFF;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -715,7 +722,6 @@ const getDiskClass = (diskName) => {
 }
 .btn-delete:hover { opacity: 0.9; }
 
-/* 🌟 新增：加载更多按钮包装器样式 */
 .load-more-wrapper {
   display: flex;
   justify-content: center;
@@ -733,8 +739,9 @@ const getDiskClass = (diskName) => {
   transition: all 0.2s ease;
 }
 .btn-load-more:hover {
-  background: #F1F5F9;
-  border-color: var(--text-light, #94A3B8);
+  background: var(--bg-card, #F1F5F9);
+  border-color: var(--color-admin-primary, #94A3B8);
+  color: var(--color-admin-primary);
 }
 
 .loading-tip {
