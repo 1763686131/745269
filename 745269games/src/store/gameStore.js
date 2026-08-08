@@ -70,8 +70,8 @@ export const useGameStore = defineStore('game', () => {
     return game
   }
 
-  // 1. 获取分页游戏列表
-  const fetchGames = async (isLoadMore = false) => {
+  // 1. 获取游戏列表 (支持自动拉取海量数据存入内存)
+  const fetchGames = async (isLoadMore = false, tags = '') => {
     if (isLoading.value || (!hasMore.value && isLoadMore)) return
     isLoading.value = true
     try {
@@ -80,14 +80,28 @@ export const useGameStore = defineStore('game', () => {
         allGames.value = []
         hasMore.value = true
       }
-      const response = await fetch(`${API_BASE_URL}/api/games?limit=10&offset=${currentOffset.value}`)
+      
+      // 🚀 核心优化：内存级本地筛选支持！
+      // 如果没有 tags（首页），按 10 条一页慢慢加载。
+      // 如果有 tags（栏目页），我们一次性找服务端要 500 条，全部砸进 Pinia！
+      // 这样你在 Column.vue 就可以尽情地进行纯本地、0延迟的排序和筛选过滤了。
+      const fetchLimit = tags ? 500 : 10; 
+      
+      let url = `${API_BASE_URL}/api/games?limit=${fetchLimit}&offset=${currentOffset.value}`
+      if (tags) {
+        url += `&tags=${encodeURIComponent(tags)}`
+      }
+
+      const response = await fetch(url)
       if (!response.ok) throw new Error('网络请求失败')
       const data = await response.json()
-      if (data.length < 10) hasMore.value = false
+      
+      // 如果拿到的数据少于我们请求的量，说明该分类真的被榨干到底了
+      if (data.length < fetchLimit) hasMore.value = false
       
       const parsedData = (Array.isArray(data) ? data : []).map(parseGameData)
       allGames.value.push(...parsedData)
-      currentOffset.value += 10
+      currentOffset.value += fetchLimit
     } catch (error) {
       console.error('获取游戏列表失败:', error)
     } finally {

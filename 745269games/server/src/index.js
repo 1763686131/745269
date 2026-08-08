@@ -45,15 +45,40 @@ export default {
       }
 
       // ==========================================
-      // 1. 获取分页游戏列表 (GET /api/games?limit=x&offset=y)
+      // 1. 获取分页游戏/分类栏目列表 (GET /api/games?limit=x&offset=y&tags=a,b)
       // ==========================================
       if (url.pathname === "/api/games" && request.method === "GET") {
         const limit = parseInt(url.searchParams.get("limit")) || 10;
         const offset = parseInt(url.searchParams.get("offset")) || 0;
+        const tags = url.searchParams.get("tags"); // 👈 拿到前端传来的 分类标签
 
-        const { results } = await env.DB.prepare(`
-          SELECT * FROM games ORDER BY id DESC LIMIT ? OFFSET ?
-        `).bind(limit, offset).all();
+        let sql = "SELECT * FROM games";
+        const bindParams = [];
+
+        // 💡 核心逻辑：如果前端传了 tags 参数，动态拼接 WHERE 搜索条件
+        if (tags) {
+          // 将 "双人,多人同屏" 拆分成数组 ['双人', '多人同屏']
+          const tagArray = tags.split(',').filter(Boolean);
+          
+          if (tagArray.length > 0) {
+            // 我们去 metadata_json 或 aliases_json 里模糊匹配这些标签
+            const conditions = tagArray.map(() => `(metadata_json LIKE ? OR aliases_json LIKE ?)`);
+            // 用 OR 连接，意味着只要满足“双人”或者“多人同屏”任意一个，就把数据拿出来
+            sql += " WHERE " + conditions.join(" OR ");
+            
+            // 把每个词的通配符塞进参数表
+            tagArray.forEach(tag => {
+              bindParams.push(`%${tag}%`, `%${tag}%`);
+            });
+          }
+        }
+
+        // 拼接排序和分页
+        sql += " ORDER BY id DESC LIMIT ? OFFSET ?";
+        bindParams.push(limit, offset);
+
+        // 执行动态 SQL
+        const { results } = await env.DB.prepare(sql).bind(...bindParams).all();
         
         const games = results.map(row => ({
           id: row.id,

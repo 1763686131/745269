@@ -7,39 +7,40 @@
           <div class="site-logo">
             <span class="text-dark">745269</span><span class="text-blue">.com</span>
           </div>
-
+          <!-- 分类导航 -->
           <nav class="category-nav hide-on-mobile">
-            <a href="#" class="nav-item">
+            <a href="#" class="nav-item" @click.prevent="goToColumn('single')">
               <svg class="cute-icon color-single" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="7" r="4"></circle><path d="M5.5 21v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2"></path>
               </svg>
               {{ t.single }}
             </a>
-            <a href="#" class="nav-item">
+            <a href="#" class="nav-item" @click.prevent="goToColumn('double')">
               <svg class="cute-icon color-double" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
               </svg>
               {{ t.double }}
             </a>
-            <a href="#" class="nav-item">
+            <a href="#" class="nav-item" @click.prevent="goToColumn('multi')">
               <svg class="cute-icon color-multi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"></path><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path><path d="M4.5 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M2 19v-1.5a4.5 4.5 0 0 1 3-4.2"></path><path d="M19.5 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M22 19v-1.5a4.5 4.5 0 0 0-3-4.2"></path>
               </svg>
               {{ t.multi }}
             </a>
-            <a href="#" class="nav-item">
+            <a href="#" class="nav-item" @click.prevent="goToColumn('classic')">
               <svg class="cute-icon color-classic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="6" width="20" height="12" rx="4" ry="4"></rect><path d="M6 12h4"></path><path d="M8 10v4"></path><path d="M15 13h.01"></path><path d="M18 11h.01"></path>
               </svg>
               {{ t.classic }}
             </a>
-            <a href="#" class="nav-item">
+            <a href="#" class="nav-item" @click.prevent="goToColumn('goty')">
               <svg class="cute-icon color-goty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
               </svg>
               {{ t.goty }}
             </a>
           </nav>
+
         </div>
 
         <div class="navbar-right">
@@ -84,11 +85,11 @@
       <transition name="menu-slide">
         <div v-if="isMobileMenuOpen" class="mobile-dropdown-menu">
           <div class="mobile-categories">
-            <a href="#" class="mobile-nav-item">{{ t.single }}</a>
-            <a href="#" class="mobile-nav-item">{{ t.double }}</a>
-            <a href="#" class="mobile-nav-item">{{ t.multi }}</a>
-            <a href="#" class="mobile-nav-item">{{ t.classic }}</a>
-            <a href="#" class="mobile-nav-item">{{ t.goty }}</a>
+            <a href="#" class="mobile-nav-item" @click.prevent="goToColumn('single')">{{ t.single }}</a>
+            <a href="#" class="mobile-nav-item" @click.prevent="goToColumn('double')">{{ t.double }}</a>
+            <a href="#" class="mobile-nav-item" @click.prevent="goToColumn('multi')">{{ t.multi }}</a>
+            <a href="#" class="mobile-nav-item" @click.prevent="goToColumn('classic')">{{ t.classic }}</a>
+            <a href="#" class="mobile-nav-item" @click.prevent="goToColumn('goty')">{{ t.goty }}</a>
           </div>
           <div class="mobile-divider"></div>
           <!-- <div class="mobile-platforms">
@@ -227,7 +228,11 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-
+// ---------- 栏目跳转 ----------
+const goToColumn = (categoryId) => {
+  isMobileMenuOpen.value = false // 如果是手机端，点完自动关掉菜单
+  router.push(`/Column/${categoryId}`) // 跳转并带着栏目标识
+}
 // ---------- 主题切换核心逻辑 ----------
 const isDark = ref(false)
 
