@@ -177,7 +177,7 @@
                         <span v-for="ver in group.versions" :key="ver" class="cute-tag-pill bg-purple">{{ ver }}</span>
                       </template>
                     </div>
-
+                    <!--  -->
                     <div class="tag-row" v-if="game.aliases && game.aliases.length > 0">
                       <span 
                         v-for="lang in game.aliases" 
@@ -681,10 +681,24 @@ const handlePlatformClick = (platform) => {
 .cute-tag-pill { font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 100px; }
 
 /* 多彩专属标签体系 */
-.bg-blue { background-color: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; } 
-.bg-pink { background-color: #fdf2f8; color: #db2777; border: 1px solid #fce7f3; } 
-.bg-purple { background-color: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; } 
-.bg-green { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; } 
+.bg-blue {
+  background-color: rgba(37, 99, 235, 0.1); 
+  color: var(--color-primary); 
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+.bg-pink { 
+  background-color: rgba(236, 72, 153, 0.1); 
+  color: var(--color-pink); 
+  border: 1px solid rgba(236, 72, 153, 0.2);
+} 
+.bg-purple { 
+  background-color: rgba(139, 92, 246, 0.1); 
+  color: var(--color-purple); 
+  border: 1px solid rgba(139, 92, 246, 0.2); } 
+.bg-green { 
+  background-color: rgba(34, 197, 158, 0.1); 
+  color: var(--color-green); 
+  border: 1px solid rgba(34, 197, 158, 0.2); } 
 
 .global-footer { width: 100%; padding: 28px 0; text-align: center; font-size: 13px; color: #94a3b8; border-top: 1px solid var(--border-light); }
 
