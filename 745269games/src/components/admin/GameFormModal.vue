@@ -29,13 +29,42 @@
               </div>
               
               <div class="form-item">
-                <label>游戏语言支持 (用逗号分隔)</label>
-                <input type="text" v-model="tempLanguages" placeholder="例如: 简体中文, 繁体中文, 英语">
+                <label>游戏语言支持 (多选)</label>
+                <div class="checkbox-group">
+                  <label 
+                    v-for="lang in availableLanguages" 
+                    :key="lang" 
+                    class="checkbox-btn-item"
+                    :class="{ 'is-active': selectedLanguages.includes(lang) }"
+                  >
+                    <input 
+                      type="checkbox" 
+                      :value="lang" 
+                      v-model="selectedLanguages" 
+                      class="hidden-input"
+                    >
+                    <span class="checkbox-text">{{ lang }}</span>
+                  </label>
+                </div>
               </div>
               
               <div class="form-item">
                 <label>游戏分类 (用逗号分隔)</label>
                 <input type="text" v-model="tempGenres" placeholder="例如: 动作, 冒险, 开放世界">
+                <div class="history-tags-wrapper" v-if="historyGenres.length > 0">
+                  <span class="history-label">推荐记录:</span>
+                  <div class="history-tags">
+                    <button 
+                      v-for="tag in historyGenres" 
+                      :key="tag" 
+                      class="history-tag"
+                      @click="appendGenre(tag)"
+                    >
+                      {{ tag }} +
+                    </button>
+                    <button class="history-clear" @click="clearHistoryGenres" title="清空历史记录">清空</button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -44,8 +73,7 @@
               <div class="upload-action-row">
                 <input type="text" v-model="formData.media.cover" placeholder="请粘贴图片URL链接 (如 https://img.domain.com/cover.jpg)" class="flex-1">
                 <span class="upload-tip">输入链接后将自动渲染预览</span>
-                
-                </div>
+              </div>
 
               <div v-if="formData.media?.cover" class="preview-cover-container">
                 <div class="preview-cover-box">
@@ -61,8 +89,7 @@
                 <input type="text" v-model="tempScreenshotUrl" @keyup.enter="addScreenshotUrl" placeholder="输入截图URL并按回车 或 点击右侧添加" class="flex-1">
                 <button class="btn-upload-file" @click="addScreenshotUrl">添加截图</button>
                 <span class="upload-tip">已添加 {{ formData.media?.screenshots?.length || 0 }} 张</span>
-                
-                </div>
+              </div>
 
               <div v-if="formData.media?.screenshots && formData.media.screenshots.length > 0" class="preview-grid-box">
                 <div v-for="(imgUrl, index) in formData.media.screenshots" :key="index" class="preview-screenshot-item">
@@ -164,7 +191,10 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
+import { useGameStore } from '@/store/gameStore' 
+
+const gameStore = useGameStore()
 
 const props = defineProps({
   visible: { type: Boolean, default: undefined },
@@ -185,9 +215,39 @@ const showModal = computed(() => {
 const isEdit = computed(() => !!props.gameData)
 const formData = ref({})
 
-// 🌟 语言支持和分类的临时字符串
-const tempLanguages = ref('')
+// ================== 🌟 优化1：语言支持（多选数组） ==================
+const availableLanguages = ['简体中文', '繁体中文', '英语', '日语']
+const selectedLanguages = ref([])
+
+// ================== 🌟 优化2：分类与历史记录 ==================
 const tempGenres = ref('')
+const historyGenres = ref([])
+
+// 页面加载时读取服务器历史分类记录
+onMounted(async () => {
+  await gameStore.fetchTags()
+  historyGenres.value = gameStore.historyTags
+})
+
+// 点击历史标签，自动填入输入框
+const appendGenre = (tag) => {
+  if (!tempGenres.value) {
+    tempGenres.value = tag
+  } else {
+    // 检查是否已经填过了，没填过才加上逗号
+    const currentTags = tempGenres.value.split(/,|，/).map(s => s.trim())
+    if (!currentTags.includes(tag)) {
+      tempGenres.value += `, ${tag}`
+    }
+  }
+}
+
+// 清空历史记录
+const clearHistoryGenres = () => {
+  historyGenres.value = []
+  localStorage.removeItem('game_genres_history')
+}
+
 // 临时截图外链输入框
 const tempScreenshotUrl = ref('')
 
@@ -202,9 +262,9 @@ const getDefaultData = () => ({
   uuid: 'uuid_' + Date.now().toString(36) + Math.random().toString(36).substring(2),
   title: { zh_CN: '', en_US: '' },
   description: '',
-  aliases: [], // 🌟 核心修复：这里恢复为 aliases，以便和后端数据库完美对接
+  aliases: [], // 这是语言数组
   media: { cover: '', screenshots: [] },
-  metadata: { platforms: [], genres: [] },
+  metadata: { platforms: [], genres: [] }, // genres 是分类数组
   downloads: [],
   system: { is_active: true }
 })
@@ -215,18 +275,18 @@ watch(showModal, (newVal) => {
     if (props.gameData) {
       formData.value = JSON.parse(JSON.stringify(props.gameData))
       if (!formData.value.description) formData.value.description = ''
-      // 🌟 核心修复：兼容旧数据，读取 aliases 字段
       if (!formData.value.aliases) formData.value.aliases = [] 
       if (!formData.value.media) formData.value.media = { cover: '', screenshots: [] }
       if (!formData.value.media.screenshots) formData.value.media.screenshots = []
       
-      // 数据回显：把后端的 aliases 数组转成字符串，赋值给前端界面的语言输入框
-      tempLanguages.value = formData.value.aliases.join(', ')
+      // 数据回显：直接把后端的数组赋值给复选框绑定的变量
+      selectedLanguages.value = [...formData.value.aliases]
+      // 分类回显：把数组转成逗号字符串填回输入框
       tempGenres.value = formData.value.metadata?.genres?.join(', ') || ''
       tempScreenshotUrl.value = ''
     } else {
       formData.value = getDefaultData()
-      tempLanguages.value = ''
+      selectedLanguages.value = []
       tempGenres.value = ''
       tempScreenshotUrl.value = ''
     }
@@ -234,15 +294,14 @@ watch(showModal, (newVal) => {
 })
 
 const handleImgError = (e) => {
-  // 图片加载失败的优雅处理
+  // 图片加载失败处理
 }
 
-// 🌟 添加截图外链的方法
 const addScreenshotUrl = () => {
   const url = tempScreenshotUrl.value.trim()
   if (url) {
     formData.value.media.screenshots.push(url)
-    tempScreenshotUrl.value = '' // 添加后清空输入框
+    tempScreenshotUrl.value = '' 
   }
 }
 
@@ -250,7 +309,6 @@ const removeScreenshot = (index) => {
   formData.value.media.screenshots.splice(index, 1)
 }
 
-// 下载版本增删
 const addDownload = () => {
   formData.value.downloads.push({
     platform: '', edition: '', version: '', file_format: '', file_size_display: '', system_requirements: {}, sources: []
@@ -265,23 +323,29 @@ const addSource = (dlIndex) => {
 }
 const removeSource = (dlIndex, srcIndex) => formData.value.downloads[dlIndex].sources.splice(srcIndex, 1)
 
-// 关闭与提交
 const handleClose = () => {
   emit('update:visible', false)
   emit('update:modelValue', false)
   emit('input', false)
 }
 
-const handleSubmit = () => {
-  // 🌟 核心修复：保存时，将填写的语言文字装回 aliases 字段发送给后端
-  formData.value.aliases = tempLanguages.value.split(',').map(s => s.trim()).filter(Boolean)
-  formData.value.metadata.genres = tempGenres.value.split(',').map(s => s.trim()).filter(Boolean)
+const handleSubmit = async () => { // ⚠️ 注意这里加了 async
+  formData.value.aliases = [...selectedLanguages.value]
+  
+  const finalGenresArray = tempGenres.value.split(/,|，/).map(s => s.trim()).filter(Boolean)
+  formData.value.metadata.genres = finalGenresArray
   formData.value.metadata.platforms = formData.value.downloads.map(dl => dl.platform).filter(Boolean)
+
+  // 🌟 核心修改：不再存 localStorage，直接发送给服务器保存！
+  if (finalGenresArray.length > 0) {
+    await gameStore.saveTags(finalGenresArray)
+  }
 
   emit('submit', formData.value)
   handleClose()
 }
 </script>
+
 <style scoped>
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -329,6 +393,31 @@ const handleSubmit = () => {
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .form-item { display: flex; flex-direction: column; gap: 8px; }
 .form-item label { font-size: 13px; font-weight: 800; color: var(--text-main, #334155); }
+
+/* 🌟 多选框组样式 (借用原本的 radio 样式逻辑优化) */
+.checkbox-group { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.checkbox-btn-item {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-main, #E2E8F0);
+  background-color: var(--bg-hover, #F8FAFC); cursor: pointer; font-size: 13px; font-weight: 800; color: var(--text-main, #334155);
+  transition: all 0.2s ease;
+}
+.checkbox-btn-item.is-active {
+  background-color: var(--color-admin-primary, #2DD4BF); border-color: var(--color-admin-primary, #2DD4BF); color: #ffffff;
+}
+
+/* 🌟 历史标签样式 */
+.history-tags-wrapper { margin-top: 8px; display: flex; align-items: flex-start; gap: 8px; }
+.history-label { font-size: 12px; color: var(--text-light, #94A3B8); font-weight: 700; white-space: nowrap; padding-top: 4px; }
+.history-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.history-tag {
+  background: var(--bg-hover, #F1F5F9); border: 1px dashed var(--border-dark, #CBD5E1);
+  color: var(--text-main, #475569); padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+}
+.history-tag:hover { background: var(--bg-card, #ffffff); border-color: var(--color-admin-primary, #2DD4BF); color: var(--color-admin-primary, #2DD4BF); transform: translateY(-1px); }
+.history-clear { background: transparent; border: none; color: var(--color-danger, #EF4444); font-size: 11px; font-weight: 700; cursor: pointer; margin-left: 4px; opacity: 0.8; }
+.history-clear:hover { opacity: 1; text-decoration: underline; }
+
 
 input[type="text"] {
   height: 42px; padding: 0 16px; border-radius: 8px;
@@ -435,7 +524,6 @@ input[type="text"]:focus, .textarea-box:focus {
 .btn-cancel:hover { background: var(--bg-hover, #F8FAFC); color: var(--text-heading, #0F172A); }
 
 .btn-submit {
-  /* 白天用深色，黑夜模式自动反转为白底黑字 */
   background-color: var(--text-heading, #0F172A); 
   color: var(--bg-card, #ffffff);
   border: none; padding: 10px 32px; border-radius: 100px; font-size: 14px; font-weight: 800; cursor: pointer;
@@ -443,8 +531,5 @@ input[type="text"]:focus, .textarea-box:focus {
 }
 .btn-submit:hover { transform: translateY(-1px); opacity: 0.9; }
 
-/* 隐藏单选按钮原生圆圈 */
 .hidden-input { display: none !important; }
 </style>
-
-

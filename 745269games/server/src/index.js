@@ -21,8 +21,14 @@ export default {
     try {
       // 🛡️ 全局防刷/节流引擎 (只限制写操作)
       if (request.method === "POST" || request.method === "PUT" || request.method === "DELETE") {
-        if (rateLimitMap.has(clientIP)) {
-          const unlockTime = rateLimitMap.get(clientIP);
+        
+        // 🎯 核心修复：把认 IP 的“全局锁”改为“IP + 具体接口”的独立锁！
+        // 比如 '127.0.0.1_tags' 和 '127.0.0.1_games' 是两把不同的锁，互不影响
+        const apiType = pathParts[1] || "general"; 
+        const limitKey = `${clientIP}_${apiType}`;
+
+        if (rateLimitMap.has(limitKey)) {
+          const unlockTime = rateLimitMap.get(limitKey);
           if (now < unlockTime) {
             const remaining = Math.ceil((unlockTime - now) / 1000);
             return new Response(JSON.stringify({ 
@@ -34,12 +40,8 @@ export default {
             });
           }
         }
-        rateLimitMap.set(clientIP, now + 10000);
-        if (rateLimitMap.size > 500) {
-          for (const [ip, time] of rateLimitMap.entries()) {
-            if (now > time) rateLimitMap.delete(ip);
-          }
-        }
+        // 锁定 10 秒
+        rateLimitMap.set(limitKey, now + 10 * 1000);
       }
 
       // ==========================================
@@ -198,6 +200,32 @@ export default {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" } 
         });
+      }
+
+      // ==========================================
+      // 7. 获取与保存历史分类标签 (GET / POST /api/tags)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "tags") {
+        
+        // 【获取标签】
+        if (request.method === "GET") {
+          // 获取最新的 30 个独立标签
+          const { results } = await env.DB.prepare("SELECT name FROM game_tags ORDER BY id DESC LIMIT 30").all();
+          const tags = results.map(r => r.name);
+          return new Response(JSON.stringify(tags), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        
+        // 【新增标签】
+        if (request.method === "POST") {
+          const { tags } = await request.json(); // 接收前端传来的数组，如 ['动作', '冒险']
+          if (tags && tags.length > 0) {
+            // 使用 INSERT OR IGNORE，数据库如果有这个词了就忽略，没有才新增，绝不重复！
+            const stmt = env.DB.prepare("INSERT OR IGNORE INTO game_tags (name) VALUES (?)");
+            const batch = tags.map(tag => stmt.bind(tag));
+            await env.DB.batch(batch); // 批量高效插入
+          }
+          return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
       }
 
       

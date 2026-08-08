@@ -203,6 +203,34 @@ export const useGameStore = defineStore('game', () => {
     }))
   }
 
+  const historyTags = ref([])
+
+  // 去服务器拉取全局标签
+  const fetchTags = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/tags`)
+      if (response.ok) {
+        historyTags.value = await response.json()
+      }
+    } catch (error) {
+      console.error('获取全局标签失败:', error)
+    }
+  }
+
+  // 把新标签存入服务器
+  const saveTags = async (tagsArray) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: tagsArray })
+      })
+      await fetchTags() // 存完后重新拉取一次最新列表
+    } catch (error) {
+      console.error('保存标签失败:', error)
+    }
+  }
+
   return {
     isLoading,
     allGames,
@@ -213,6 +241,9 @@ export const useGameStore = defineStore('game', () => {
     uploadImage,
     fetchSearchFromServer, 
     fetchGameById,
-    formatAdminTableData 
+    formatAdminTableData,
+    historyTags,
+    fetchTags,
+    saveTags
   }
 })
