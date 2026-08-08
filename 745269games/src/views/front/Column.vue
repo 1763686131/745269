@@ -59,10 +59,9 @@
               {{ tag.name }}
             </span>
           </div>
-          
-
-
         </div>
+
+        
       </article>
 
     </div>

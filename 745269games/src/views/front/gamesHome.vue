@@ -160,6 +160,7 @@
                   <div class="rating-badge" v-if="game.download_count > 0">🔥 {{ game.download_count }} 下载</div>
                 </div>
                 
+                <!-- 游戏信息内容 -->
                 <div class="card-content">
                   
                   <div class="title-row">
@@ -201,6 +202,9 @@
                   </div>
 
                 </div>
+
+
+
               </article>
             </div>
           </div>
@@ -358,8 +362,8 @@ const currentLang = ref('zh')
 const i18n = {
   zh: {
     single: '大型单人',
-    double: '双人同屏',
-    multi: '多人局域网',
+    double: '双人-多人同屏',
+    multi: '局域网联机',
     classic: '体感游戏',
     goty: '年度最佳',
     placeholder: '搜索游戏、攻略、密令...',
