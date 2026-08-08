@@ -1,155 +1,149 @@
 <template>
-  <div class="single-page-wrapper">
-    <div class="detail-container">
-      
-      <aside class="left-aside white-card-box">
-        <button @click="goBack" class="btn-back">
-          返回上一级
-        </button>
-
-        <div class="download-container mt-2" v-if="game && game.downloads && game.downloads.length">
-          <div v-for="(dl, index) in game.downloads" :key="index" class="version-block">
-            <div class="version-title">
-              {{ dl.platform }} {{ dl.version }}版本
-            </div>
-            
-            <div class="source-rows">
-              <div v-for="(source, sIdx) in dl.sources" :key="sIdx" class="source-item">
-                <a :href="source.url" target="_blank" class="btn-dl">
-                  {{ source.name || '百度网盘' }}
-                </a>
-                <button @click="copyLink(source.url, source.password)" class="btn-dl">
-                  复制链接
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <main class="right-main">
-        
-        <div v-if="isLoading" class="loading-state">
-          <div class="spinner"></div>
-          <p class="text-muted text-sm mt-2">正在载入游戏详情...</p>
-        </div>
-
-        <template v-else-if="game">
-          <div class="hero-grey-box">
-            <div class="hero-top-btns">
-              <button class="btn-pill-action">论坛</button>
-              <button class="btn-pill-action">金手指</button>
-            </div>
-
-            <div class="platform-icons-group flex gap-3">
-              <template v-for="icon in platformIcons" :key="icon.name">
-                <img 
-                  v-if="icon.src" 
-                  :src="icon.src" 
-                  :title="icon.name"
-                  class="platform-icon-img" 
-                />
-                <span v-else class="fallback-icon-text">{{ icon.name }}</span>
-              </template>
-            </div>
-
-            <div class="hero-content">
-              <div class="cover-wrapper">
-                <img 
-                  :src="game.media?.cover" 
-                  :alt="game.title?.zh_CN" 
-                  class="cover-image" 
-                />
-              </div>
-
-              <div class="meta-wrapper flex-1">
-                
-                <div class="title-group w-full pr-32">
-                  <h1 class="title-zh">{{ formatNoComma(game.title?.zh_CN) }}</h1>
-                  <h2 class="title-en">{{ formatNoComma(game.title?.en_US) }}</h2>
-                </div>
-
-                <div class="tag-group mt-3">
-                  <span v-for="lang in safeArray(game.aliases, ['简体中文', '英文'])" :key="lang" class="pill-tag">
-                    {{ formatNoComma(lang) }}
-                  </span>
-                </div>
-
-                <div class="tag-group mt-2">
-                  <span v-for="genre in safeArray(game.metadata?.genres, ['冒险', '动作', '解密', '开放世界'])" :key="genre" class="pill-tag">
-                    {{ formatNoComma(genre) }}
-                  </span>
-                </div>
-
-                <div class="tag-group mt-2">
-                  <span class="pill-tag">
-                    switch版本: {{ formatNoComma(game.downloads?.[0]?.edition || '标准版') }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-screenshot" v-if="game.media?.screenshots?.length">
-            <h3 class="section-title">游戏截图</h3>
-            <div class="screenshot-grey-box">
-              <div class="screenshot-grid">
-                <div 
-                  v-for="(img, idx) in game.media.screenshots.slice(0, 3)" 
-                  :key="idx" 
-                  class="screenshot-item cursor-pointer hover:opacity-80 transition-opacity"
-                  @click="openPreview(idx)"
-                >
-                  <img :src="img" :alt="`截图 ${idx + 1}`" class="screenshot-img" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-desc">
-            <h3 class="section-title">简介</h3>
-            <div class="desc-white-box">
-              <p class="desc-paragraph">
-                {{ formatNoComma(game.description || '暂无详细简介') }}
-              </p>
-            </div>
-          </div>
-        </template>
-
-        <div v-else class="empty-state">
-          <p class="text-base font-bold">未能检索到该游戏数据</p>
-          <button @click="goBack" class="btn-back mt-3">返回上一级</button>
-        </div>
-
-      </main>
-    </div>
-
-    <div v-if="isPreviewOpen" class="lightbox-overlay" @click.self="closePreview">
-      <button class="lightbox-close" @click="closePreview">
-        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+  <div class="game-detail-container" v-if="game">
+    
+    <header class="detail-top-header">
+      <button class="back-btn" @click="goBack">
+        <span class="back-arrow">⬅️</span> 返回列表
       </button>
 
-      <button class="lightbox-btn prev" @click.stop="prevPreview">❮</button>
-      
-      <div class="relative">
-        <img :src="game.media?.screenshots[currentPreviewIndex]" class="lightbox-img" />
-        <span class="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-white text-sm tracking-widest opacity-70">
-          {{ currentPreviewIndex + 1 }} / {{ game.media?.screenshots.length }}
-        </span>
+      <div class="center-title-box">
+        <h1 class="main-title-zh">{{ game.title?.zh_CN || '未命名游戏' }}</h1>
+        <p class="sub-title-en" v-if="game.title?.en_US">{{ game.title?.en_US }}</p>
       </div>
-      
-      <button class="lightbox-btn next" @click.stop="nextPreview">❯</button>
-    </div>
 
+      <div class="header-placeholder"></div>
+    </header>
+
+    <main class="middle-main-layout">
+      
+      <section class="left-info-column">
+        <div class="poster-card">
+          <img v-if="game.media?.cover" :src="game.media.cover" :alt="game.title?.zh_CN" class="poster-img" />
+          <div v-else class="poster-placeholder">暂无封面图</div>
+          
+          <div class="poster-badge-row">
+            <span class="mini-badge rating" v-if="game.metadata?.rating">⭐ {{ game.metadata.rating }} 分</span>
+            <span class="mini-badge" v-for="(p, i) in game.metadata?.platforms" :key="i">
+              {{ String(p).toUpperCase() }}
+            </span>
+          </div>
+        </div>
+
+        <div class="desc-card">
+          <h3 class="section-title">游戏简介</h3>
+          <p class="desc-text">{{ game.description || '暂无详细文字介绍...' }}</p>
+          
+          <div class="genre-tags-list" v-if="game.metadata?.genres && game.metadata.genres.length > 0">
+            <span v-for="(g, idx) in game.metadata.genres" :key="idx" class="genre-tag-pill">
+              # {{ g }}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="right-banner-column">
+        <div class="banner-card" @mouseenter="stopBannerTimer" @mouseleave="startBannerTimer">
+          <h3 class="section-title">精彩实机画赏</h3>
+          
+          <div class="main-banner-viewer" v-if="game.media?.screenshots && game.media.screenshots.length > 0">
+            <img :src="game.media.screenshots[activeImageIndex]" alt="游戏截图" class="active-banner-img fade-transition" :key="activeImageIndex" />
+            <div class="image-counter">{{ activeImageIndex + 1 }} / {{ game.media.screenshots.length }}</div>
+          </div>
+          <div class="banner-placeholder" v-else>
+            🖼️ 暂无游戏截图
+          </div>
+
+          <div class="thumbnails-track" v-if="game.media?.screenshots && game.media.screenshots.length > 1">
+            <div 
+              v-for="(img, idx) in game.media.screenshots" 
+              :key="idx"
+              class="thumb-item"
+              :class="{ active: activeImageIndex === idx }"
+              @click="handleManualChange(idx)"
+            >
+              <img :src="img" alt="缩略图" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="bottom-action-layout">
+      
+      <div class="interaction-bar-card">
+        <div class="stats-left">
+          <span class="stat-item">🔥 下载量：<strong>{{ game.download_count || 0 }}</strong> 次</span>
+          <span class="stat-item">📅 上架时间：<strong>{{ formatDate(game.system?.created_at) }}</strong></span>
+        </div>
+
+        <button class="like-action-btn" :class="{ liked: isLiked }" @click="toggleLike">
+          <span class="like-icon">👍</span> 
+          <span>{{ isLiked ? '已赞爆该游戏' : '给游戏赞爆' }}</span>
+          <span class="like-count">({{ (game.likes || 0) + (isLiked ? 1 : 0) }})</span>
+        </button>
+      </div>
+
+      <div class="resources-grid-row">
+        
+        <div class="resource-card download-box">
+          <h3 class="card-head-title">⚡ 资源网盘下载</h3>
+          
+          <div class="download-list" v-if="game.downloads && game.downloads.length > 0">
+            <div v-for="(dl, idx) in game.downloads" :key="idx" class="dl-group-item">
+              <div class="dl-plat-tag">{{ dl.platform || '通用版本' }} {{ dl.version ? `(${dl.version})` : '' }}</div>
+              
+              <div class="dl-sources" v-if="dl.sources && dl.sources.length > 0">
+                <div v-for="(src, sIdx) in dl.sources" :key="sIdx" class="source-row">
+                  <span class="source-name">{{ src.name || '网盘直链' }}</span>
+                  <div class="source-right">
+                    <button class="copy-code-btn" v-if="src.code || src.password" @click="copyCode(src.code || src.password)">
+                      提取码: {{ src.code || src.password }} 📋
+                    </button>
+                    <a :href="src.url" target="_blank" class="download-link-btn">立即前往下载</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-hint" v-else>
+            🔒 暂无可用下载资源
+          </div>
+        </div>
+
+        <div class="resource-card forum-box">
+          <h3 class="card-head-title">💬 玩家交流社区</h3>
+          <div class="forum-content">
+            <p class="forum-desc">遇到解压问题、通关卡关或游戏补丁报错？可以在这里与大家交流：</p>
+            <div class="forum-action-area">
+              <button class="forum-btn" @click="alert('论坛社区功能开发中，敬请期待！')">
+                💬 进入《{{ game.title?.zh_CN || '本游戏' }}》讨论区
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </footer>
+
+  </div>
+
+  <div class="status-box" v-else-if="isLoading">
+    <div class="spinner"></div>
+    <p>正在读取游戏数据...</p>
+  </div>
+  <div class="status-box" v-else>
+    <h2>📭 未找到相关游戏档案</h2>
+    <button class="back-home-btn" @click="$router.push('/')">返回首页</button>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useGameStore } from '@/store/gameStore'
+import { useGameStore } from '@/store/gameStore' 
 
 const route = useRoute()
 const router = useRouter()
@@ -157,69 +151,62 @@ const gameStore = useGameStore()
 
 const game = ref(null)
 const isLoading = ref(true)
+const isLiked = ref(false)
+const activeImageIndex = ref(0)
 
-const platformIcons = computed(() => {
-  if (!game.value?.downloads || game.value.downloads.length === 0) return []
-  const uniquePlatforms = [...new Set(game.value.downloads.map(d => String(d.platform || '').toUpperCase()))]
-  return uniquePlatforms.map(p => {
-    if (p.includes('SWITCH')) return { name: p, src: '../../../dist/icon/switch.png' }
-    if (p.includes('PC')) return { name: p, src: '../../../dist/icon/pc.png' }
-    if (p.includes('PS4') || p.includes('PS5')) return { name: p, src: '../../../dist/icon/playstation.png' }
-    return { name: p, src: null }
-  })
-})
+// 🌟 自动轮播相关逻辑
+let bannerTimer = null
 
-const isPreviewOpen = ref(false)
-const currentPreviewIndex = ref(0)
-const openPreview = (index) => { currentPreviewIndex.value = index; isPreviewOpen.value = true }
-const closePreview = () => { isPreviewOpen.value = false }
-const nextPreview = () => {
-  if (!game.value?.media?.screenshots || game.value.media.screenshots.length === 0) return
-  currentPreviewIndex.value = (currentPreviewIndex.value + 1) % game.value.media.screenshots.length
-}
-const prevPreview = () => {
-  if (!game.value?.media?.screenshots || game.value.media.screenshots.length === 0) return
-  const total = game.value.media.screenshots.length
-  currentPreviewIndex.value = (currentPreviewIndex.value - 1 + total) % total
-}
 
-const formatNoComma = (text) => {
-  if (!text) return ''
-  return String(text).replace(/,|，/g, ' ')
-}
-
-const safeArray = (data, fallback) => {
-  if (Array.isArray(data)) return data
-  if (typeof data === 'string') {
-    try {
-      const arr = JSON.parse(data)
-      if (Array.isArray(arr)) return arr
-    } catch {
-      return data.split(/,|，/)
-    }
+// 1. 停止定时器的方法保持不变
+const stopBannerTimer = () => {
+  if (bannerTimer) {
+    clearInterval(bannerTimer)
+    bannerTimer = null
   }
-  return fallback
+}
+
+// 2. 🚨 核心修复：启动定时器
+const startBannerTimer = () => {
+  // 👉 关键点：每次启动前，必定先手起刀落把旧的干掉！绝不让两个定时器同时存在。
+  stopBannerTimer() 
+
+  // 如果没有图片或者只有1张图片，不开启轮播
+  if (!game.value?.media?.screenshots || game.value.media.screenshots.length <= 1) return
+  
+  // 重新开启干干净净的 5 秒倒计时
+  bannerTimer = setInterval(() => {
+    activeImageIndex.value = (activeImageIndex.value + 1) % game.value.media.screenshots.length
+  }, 5000)
+}
+
+
+
+// 玩家手动点击缩略图时，切换图片并“重置” 5秒倒计时
+const handleManualChange = (idx) => {
+  activeImageIndex.value = idx
+  // 手动点击后直接重启，因为 startBannerTimer 内部现在已经自带了 stop 功能
+  startBannerTimer()
 }
 
 onMounted(async () => {
   const targetId = String(route.params.id)
   
-  // 1. 先从 Pinia 本地找
   let localGame = (gameStore.allGames || []).find(g => String(g.id) === targetId)
 
   if (localGame) {
     game.value = localGame
     isLoading.value = false
+    startBannerTimer() // 👈 获取数据成功后开启轮播
     return
   }
 
-  // 2. 本地没有（按 F5 刷新了），调用 fetchGameById
   try {
     isLoading.value = true
-    // store 内会自动用 parseGameData 解析并同步存入 gameStore.allGames，保证数据结构 100% 相同
     const fetchedGame = await gameStore.fetchGameById(targetId)
     if (fetchedGame) {
       game.value = fetchedGame
+      startBannerTimer() // 👈 获取数据成功后开启轮播
     }
   } catch (error) {
     console.error('拉取详情数据失败:', error)
@@ -228,325 +215,128 @@ onMounted(async () => {
   }
 })
 
-const goBack = () => router.back()
-const copyLink = async (url, password) => {
+// 组件销毁前（比如退回到首页时），务必清空定时器，防止内存泄漏
+onUnmounted(() => {
+  stopBannerTimer()
+})
+
+const goBack = () => {
+  router.back()
+}
+
+const copyCode = async (code) => {
   try {
-    const text = password ? `链接: ${url} 提取码: ${password}` : url
-    await navigator.clipboard.writeText(text)
-    alert('链接及提取码已复制！')
+    await navigator.clipboard.writeText(code)
+    alert(`提取码 [ ${code} ] 已成功复制！`)
   } catch (err) {
     console.error('复制失败:', err)
   }
 }
+
+const toggleLike = () => {
+  isLiked.value = !isLiked.value
+}
+
+const formatDate = (str) => {
+  if (!str) return '未知时间'
+  return new Date(str).toLocaleDateString('zh-CN')
+}
 </script>
 
-
 <style scoped>
-.single-page-wrapper {
-  width: 100vw;
-  height: 100vh;
-  max-height: 100vh;
-  background-color: var(--bg-body, #f4f5f7);
-  color: var(--text-main, #333333);
-  overflow: hidden;
-  box-sizing: border-box;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+@import '@/assets/styles/theme.css';
+
+.game-detail-container { max-width: 1400px; margin: 0 auto; padding: 30px 20px 80px 20px; color: var(--text-main); }
+.detail-top-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--border-main); padding-bottom: 20px; margin-bottom: 30px; }
+.back-btn { background: var(--bg-card); border: 1px solid var(--border-main); color: var(--text-muted); padding: 8px 18px; border-radius: 20px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; }
+.back-btn:hover { color: var(--color-primary); border-color: var(--color-primary); transform: translateX(-3px); }
+.center-title-box { text-align: center; }
+.main-title-zh { font-size: 32px; font-weight: 900; margin: 0; color: var(--text-heading); letter-spacing: -0.5px; }
+.sub-title-en { margin: 4px 0 0 0; font-size: 14px; color: var(--text-light); font-weight: 600; }
+.header-placeholder { width: 100px; }
+
+.middle-main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 30px; margin-bottom: 30px; }
+.left-info-column { display: flex; flex-direction: column; gap: 20px; }
+
+.poster-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+.poster-img { width: 100%; aspect-ratio: 0 / 4; object-fit: cover; border-radius: 12px; display: block; }
+.poster-placeholder { width: 100%; aspect-ratio: 3 / 4; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.poster-badge-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.mini-badge { background-color: rgba(37, 99, 235, 0.1); background-color: rgba(37, 99, 235, 0.1); font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main); }
+.mini-badge.rating { color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
+
+.desc-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; flex: 1; }
+.section-title { font-size: 18px; font-weight: 800; color: var(--text-heading); margin: 0 0 14px 0; border-bottom: 1px solid var(--border-main); padding-bottom: 8px; }
+.desc-text { font-size: 14px; line-height: 1.7; color: var(--text-muted); white-space: pre-line; margin: 0 0 16px 0; }
+.genre-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.genre-tag-pill { font-size: 12px; color: var(--color-primary); font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 4px 10px; border-radius: 100px; }
+
+/* 右侧栏：大图轮播 */
+.right-banner-column { height: 100%; }
+.banner-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; height: 100%; display: flex; flex-direction: column; }
+.main-banner-viewer { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--border-main); }
+
+/* 🌟 图片切换淡入淡出动画 */
+.fade-transition {
+  animation: fadeIn 0.4s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0.6; transform: scale(1.02); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.detail-container {
-  width: 100%;
-  max-width: 1200px;
-  height: 100%;
-  padding: 1.25rem 1.5rem;
-  display: flex;
-  gap: 1.75rem;
-  box-sizing: border-box;
-}
+.active-banner-img { width: 100%; height: 100%; object-fit: contain; }
+.image-counter { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; backdrop-filter: blur(4px); }
+.banner-placeholder { width: 100%; aspect-ratio: 16 / 9; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 
-.white-card-box {
-  background-color: var(--bg-card, #ffffff);
-  border-radius: 1rem;
-  padding: 1.25rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-  border: 1px solid var(--border-light, #f1f5f9);
-}
+/* 缩略图滚动轨 */
+.thumbnails-track { display: flex; gap: 12px; margin-top: 16px; overflow-x: auto; padding-bottom: 6px; }
+/* 隐藏滚动条让它更美观 */
+.thumbnails-track::-webkit-scrollbar { height: 6px; }
+.thumbnails-track::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 4px; }
+.thumb-item { width: 100px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; cursor: pointer; border: 2px solid transparent; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0; }
+.thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+.thumb-item:hover { opacity: 0.9; }
+.thumb-item.active { border-color: var(--color-primary); opacity: 1; transform: scale(1.05); }
 
-.left-aside {
-  width: 220px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
+/* 底部操作区 */
+.bottom-action-layout { display: flex; flex-direction: column; gap: 20px; }
+.interaction-bar-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+.stats-left { display: flex; gap: 24px; font-size: 14px; color: var(--text-muted); }
+.stat-item strong { color: var(--text-heading); }
+.like-action-btn { background: var(--bg-hover); border: 2px solid var(--border-main); color: var(--text-heading); padding: 10px 24px; border-radius: 100px; font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.like-action-btn:hover { border-color: #ec4899; color: #ec4899; transform: scale(1.05); }
+.like-action-btn.liked { background: #ec4899; color: #fff; border-color: #ec4899; box-shadow: 0 6px 20px rgba(236, 72, 153, 0.3); }
 
-.btn-back {
-  align-self: center;
-  width: 80%;
-  background-color: var(--bg-card, #ffffff);
-  color: var(--text-heading, #111827);
-  border: 1px solid var(--border-dark, #cbd5e1);
-  border-radius: 0.375rem;
-  padding: 0.45rem 0;
-  font-size: 0.825rem;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.btn-back:hover {
-  border-color: var(--color-primary, #e60012);
-  color: var(--color-primary, #e60012);
-}
+.resources-grid-row { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+.resource-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 24px; }
+.card-head-title { font-size: 18px; font-weight: 800; color: var(--text-heading); margin: 0 0 16px 0; border-bottom: 2px solid var(--border-main); padding-bottom: 10px; }
 
-.download-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  overflow-y: auto;
-}
-.version-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-heading, #111827);
-  margin-bottom: 0.35rem;
-}
-.source-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-.source-item { display: flex; gap: 0.35rem; }
-.btn-dl {
-  flex: 1;
-  background-color: var(--bg-hover, #f8fafc);
-  border: 1px solid var(--border-main, #e2e8f0);
-  border-radius: 0.375rem;
-  padding: 0.35rem 0.25rem;
-  font-size: 0.75rem;
-  color: var(--text-main, #374151);
-  text-align: center;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-.btn-dl:hover {
-  border-color: var(--text-heading, #111827);
-  color: var(--text-heading, #111827);
-}
+.dl-group-item { background: var(--bg-hover); border-radius: 12px; padding: 14px; margin-bottom: 12px; border: 1px solid var(--border-main); }
+.dl-plat-tag { font-size: 13px; font-weight: 800; color: var(--color-primary); margin-bottom: 8px; }
+.source-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+.source-name { font-size: 14px; font-weight: 700; color: var(--text-main); }
+.source-right { display: flex; gap: 10px; align-items: center; }
+.copy-code-btn { background: rgba(236, 72, 153, 0.1); color: var(--color-pink); border: 1px solid rgba(236, 72, 153, 0.2); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; cursor: pointer; }
+.download-link-btn { background: var(--color-primary, #2563eb); color: #fff; text-decoration: none; padding: 6px 16px; border-radius: 8px; font-size: 13px; font-weight: 800; transition: 0.2s; }
+.download-link-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
 
-.right-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  height: 100%;
-}
+.forum-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
+.forum-btn { width: 100%; background: var(--bg-hover); border: 2px dashed var(--border-dark); color: var(--text-heading); padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+.forum-btn:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--bg-card); }
 
-.hero-grey-box {
-  position: relative;
-  background-color: var(--bg-hover, #eaeaea);
-  border-radius: 1rem;
-  padding: 1.25rem;
-}
-.hero-top-btns {
-  position: absolute;
-  top: 1rem;
-  right: 1.25rem;
-  display: flex;
-  gap: 0.4rem;
-  z-index: 2;
-}
-.btn-pill-action {
-  background-color: var(--bg-card, #ffffff);
-  color: var(--text-heading, #111827);
-  border: none;
-  border-radius: 9999px;
-  padding: 0.3rem 0.9rem;
-  font-size: 0.775rem;
-  font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  cursor: pointer;
-}
-
-.platform-icons-group {
-  position: absolute;
-  bottom: 1.25rem;
-  right: 1.25rem;
-  z-index: 10;
-}
-
-.hero-content {
-  display: flex;
-  gap: 1.25rem;
-  align-items: flex-start;
-}
-
-.cover-wrapper {
-  flex-shrink: 0;
-}
-.cover-image {
-  width: 350px;
-  height: 210px;      
-  object-fit: cover;  
-  border-radius: 0.75rem;
-  display: block;
-}
-
-.meta-wrapper {
-  display: flex;
-  flex-direction: column;
-}
-.title-zh {
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: var(--text-heading, #111827);
-  line-height: 1.2;
-}
-.title-en {
-  font-size: 0.85rem;
-  color: var(--text-muted, #6b7280);
-  margin-top: 0.15rem;
-}
-
-.platform-icon-img {
-  width: 3.25rem;
-  height: 3.25rem;
-  object-fit: contain;
-  border-radius: 0.65rem; 
-  padding: 0.35rem;
-}
-.fallback-icon-text {
-  font-size: 1rem;
-  font-weight: 900;
-  color: #e60012;
-  padding: 0.5rem;
-}
-
-.tag-group { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.pill-tag {
-  background-color: var(--bg-card, #ffffff);
-  color: var(--text-main, #374151);
-  padding: 0.2rem 0.75rem;
-  margin-top: 0.5rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-.section-title {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--text-heading, #111827);
-  margin-bottom: 0.4rem;
-}
-
-.section-screenshot { display: flex; flex-direction: column; }
-.screenshot-grey-box {
-  background-color: var(--bg-hover, #eaeaea);
-  border-radius: 1rem;
-  padding: 0.6rem;
-}
-.screenshot-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.6rem;
-}
-.screenshot-item {
-  border-radius: 0.5rem;
-  overflow: hidden;
-  aspect-ratio: 16/9;
-}
-.screenshot-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.section-desc {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.desc-white-box {
-  flex: 1;
-  background-color: var(--bg-card, #ffffff);
-  border-radius: 1rem;
-  padding: 1rem 1.25rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  overflow-y: auto;
-}
-.desc-paragraph {
-  font-size: 0.875rem;
-  line-height: 1.6;
-  color: var(--text-main, #4b5563);
-  margin: 0;
-}
-
-.lightbox-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(0, 0, 0, 0.88);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-}
-
-.lightbox-img {
-  max-width: 90vw;
-  max-height: 85vh;
-  object-fit: contain;
-  border-radius: 0.5rem;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-  user-select: none;
-}
-
-.lightbox-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  border: none;
-  width: 3.5rem;
-  height: 3.5rem;
-  font-size: 1.5rem;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-.lightbox-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-50%) scale(1.1);
-}
-.lightbox-btn.prev { left: 3rem; }
-.lightbox-btn.next { right: 3rem; }
-
-.lightbox-close {
-  position: absolute;
-  top: 2rem;
-  right: 2.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-  padding: 0.5rem;
-}
-.lightbox-close:hover { opacity: 1; }
-
-.loading-state, .empty-state { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; }
-.spinner { width: 2rem; height: 2rem; border: 3px solid var(--border-light, #e5e7eb); border-top-color: var(--color-primary, #e60012); border-radius: 50%; animation: spin 0.8s linear infinite; }
+.status-box { min-height: 50vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); }
+.back-home-btn { background: var(--color-primary); color: #fff; border: none; padding: 10px 24px; border-radius: 100px; font-weight: 800; cursor: pointer; margin-top: 16px; }
+.spinner { width: 2.5rem; height: 2.5rem; border: 3px solid var(--border-main); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem;}
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 900px) {
+  .middle-main-layout { grid-template-columns: 1fr; } 
+  .resources-grid-row { grid-template-columns: 1fr; }
+  .detail-top-header { flex-direction: column; gap: 10px; text-align: center; }
+  .header-placeholder { display: none; }
+  .interaction-bar-card { flex-direction: column; gap: 16px; align-items: stretch; text-align: center; }
+  .stats-left { justify-content: center; }
+  .like-action-btn { justify-content: center; }
+}
 </style>
