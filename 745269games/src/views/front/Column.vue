@@ -6,7 +6,7 @@
         <h1 class="category-title">
           <span class="cyber-accent">⬅️</span> {{ currentCategory.title }}
         </h1>
-        <p class="category-subtitle">为您找到 {{ totalCount }} 款精彩游戏</p>
+        <p class="category-subtitle">已从服务器为您搬运 {{ totalCount }} 款游戏入库</p>
       </div>
 
       <div class="filter-bar">
@@ -18,14 +18,36 @@
       </div>
     </div>
 
+    <div class="genre-filter-container" v-if="availableGenres.length > 1">
+      <span class="filter-label">本地类型筛选：</span>
+      <div class="genre-buttons">
+        <button 
+          v-for="genre in availableGenres" 
+          :key="genre"
+          class="genre-btn"
+          :class="{ active: selectedGenre === genre }"
+          @click="setGenre(genre)"
+        >
+          {{ genre }}
+        </button>
+      </div>
+    </div>
+
     <div class="empty-state-box" v-if="!gameStore.isLoading && totalCount === 0">
       <div class="empty-icon">📭</div>
       <h3>未找到相关游戏</h3>
-      <p>在“{{ currentCategory.title }}”分类下，暂未检索到任何数据 (找到 0 条数据)。</p>
+      <p>在“{{ currentCategory.title }}”分类下，服务器暂无任何数据。</p>
       <button class="back-home-btn" @click="$router.push('/')">返回首页</button>
     </div>
 
-    <div class="game-grid-layout" v-if="totalCount > 0">
+    <div class="empty-state-box local-empty" v-if="totalCount > 0 && displayedGames.length === 0">
+      <div class="empty-icon">🔍</div>
+      <h3>当前视图暂无数据</h3>
+      <p>在已加载的游戏中，没有发现属于“<span class="highlight-text">{{ selectedGenre }}</span>”分类的游戏。</p>
+      <p class="hint-text">您可以尝试【加载更多】从服务器获取新数据，或者切换其他分类。</p>
+    </div>
+
+    <div class="game-grid-layout" v-if="displayedGames.length > 0">
       <article class="game-card" v-for="game in displayedGames" :key="game.id" @click="$router.push(`/game/${game.id}`)">
         <div class="card-image-wrapper">
           <img v-if="game.cover" :src="game.cover" :alt="game.title" class="game-cover-img" />
@@ -44,14 +66,15 @@
       </article>
     </div>
 
-    <div class="load-more-container" v-if="gameStore.hasMore && totalCount > 0">
+    <div class="load-more-container" v-if="gameStore.hasMore">
       <button class="load-more-btn" @click="loadMore" :disabled="gameStore.isLoading">
-        <span v-if="!gameStore.isLoading">⬇️ 发现更多好游戏</span>
+        <span v-if="!gameStore.isLoading">⬇️ 从服务器加载更多 (当前已载入 {{ totalCount }} 条)</span>
         <span v-else class="loading-flex"><span class="mini-spinner"></span> 正在努力搬运中...</span>
       </button>
     </div>
+    
     <div class="all-loaded-hint" v-else-if="!gameStore.hasMore && totalCount > 0">
-      🎮 已经到底啦，没有更多游戏了哦~
+      🎮 服务器数据已全部加载至本地啦，尽情筛选吧！
     </div>
 
   </div>
@@ -66,23 +89,44 @@ const route = useRoute()
 const gameStore = useGameStore()
 const sortOrder = ref('newest')
 
-// 💡 1. 定义核心路由映射字典
+// 🌟 核心状态：当前选中的类型
+const selectedGenre = ref('全部')
+
 const categoryMap = {
   'single': { title: '大型单人游戏', tags: '单人' },
-  'double': { title: '双人/多人同屏', tags: '双人,多人同屏' }, // 逗号隔开，传给后端
+  'double': { title: '双人/多人同屏', tags: '双人,多人同屏' }, 
   'multi': { title: '局域网联机', tags: '局域网' },
   'classic': { title: '体感游戏', tags: '体感' },
   'goty': { title: '年度最佳', tags: '年度最佳' }
 }
 
-// 💡 2. 计算当前应该显示的标题和向服务器请求的标签
 const currentCategory = computed(() => {
   return categoryMap[route.params.id] || { title: '全部游戏库', tags: '' }
 })
 
-// 💡 3. 初始化加载 & 监听路由变化自动重新拉取数据
+// 🚀 自动嗅探器：遍历 Pinia 中已加载的数据，收集所有不重复的类型标签
+const availableGenres = computed(() => {
+  const genres = new Set()
+  gameStore.allGames.forEach(game => {
+    // 假设你的类型存在 game.metadata.genres 里
+    if (game.metadata?.genres && Array.isArray(game.metadata.genres)) {
+      game.metadata.genres.forEach(g => {
+        // 去除空值或者无效符号
+        const cleanTag = g.replace(/,|，/g, ' ').trim()
+        if (cleanTag) genres.add(cleanTag)
+      })
+    }
+  })
+  // 转换成数组并把"全部"放在第一位
+  return ['全部', ...Array.from(genres)]
+})
+
+// 切换类型
+const setGenre = (genre) => {
+  selectedGenre.value = genre
+}
+
 const fetchCurrentCategoryGames = () => {
-  // 把对应栏目的 tags 传给 Pinia 去服务端拉取
   gameStore.fetchGames(false, currentCategory.value.tags)
 }
 
@@ -90,9 +134,10 @@ onMounted(() => {
   fetchCurrentCategoryGames()
 })
 
-// 当用户直接在顶栏切换不同栏目时，触发重新获取数据
+// 当切换顶部大栏目时，不仅要重拉数据，还要把本地筛选重置回"全部"
 watch(() => route.params.id, () => {
   if (route.name === 'Column') {
+    selectedGenre.value = '全部'
     fetchCurrentCategoryGames()
   }
 })
@@ -100,14 +145,26 @@ watch(() => route.params.id, () => {
 const setSortOrder = (order) => { sortOrder.value = order }
 const loadMore = () => { gameStore.fetchGames(true, currentCategory.value.tags) }
 
+// 🚀 本地计算引擎：先按 selectedGenre 过滤，再按 sortOrder 排序
 const displayedGames = computed(() => {
   let games = [...gameStore.allGames]
+
+  // 1. 本地过滤逻辑
+  if (selectedGenre.value !== '全部') {
+    games = games.filter(game => {
+      const gTags = game.metadata?.genres || []
+      return gTags.some(tag => tag.includes(selectedGenre.value))
+    })
+  }
+
+  // 2. 本地排序逻辑
   games.sort((a, b) => {
     const timeA = new Date(a.system?.created_at || 0).getTime()
     const timeB = new Date(b.system?.created_at || 0).getTime()
     return sortOrder.value === 'newest' ? timeB - timeA : timeA - timeB
   })
 
+  // 3. 映射为 UI 需要的精简结构
   return games.map(game => {
     const tags = []
     if (game.metadata?.platforms) game.metadata.platforms.forEach(p => tags.push({ name: p, type: 'platform' }))
@@ -126,22 +183,50 @@ const displayedGames = computed(() => {
 const totalCount = computed(() => gameStore.allGames.length)
 </script>
 
-<style>
-
-/* 清除 Vite 默认样式，接管全屏，并绑定主题大背景 */
-html, body, #app {
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  min-height: 100vh !important;
-  background-color: var(--bg-body) !important;
-  display: block !important; 
-  transition: background-color 0.3s ease; /* 切换主题时增加平滑过渡动画 */
-}
-</style>
-
 <style scoped>
+@import '@/assets/styles/theme.css'; 
+
+.super-root-container { min-height: 100vh; background-color: var(--bg-body); padding: 40px; color: var(--text-main); transition: all 0.3s ease; }
+.page-header-container { max-width: 1400px; margin: 0 auto 20px auto; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--border-main); padding-bottom: 20px; }
+.category-title { font-size: 36px; font-weight: 900; margin: 0 0 8px 0; color: var(--text-heading); }
+.cyber-accent { color: var(--color-primary); margin-right: 8px; }
+.category-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; }
+
+/* ======== 🌟 本地分类筛选器样式 ======== */
+.genre-filter-container {
+  max-width: 1400px;
+  margin: 0 auto 30px auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+}
+.genre-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.genre-btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-main);
+  color: var(--text-muted);
+  padding: 6px 18px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.genre-btn:hover { color: var(--text-heading); border-color: var(--border-dark); transform: scale(1.05); }
+.genre-btn.active {
+  background: var(--color-primary, #2563eb);
+  color: #fff;
+  border-color: var(--color-primary, #2563eb);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  transform: scale(1.05);
+}
+
 /* =========================================
  * 🌟 核心替换：全面接入 theme.css 变量体系 
  * ========================================= */
