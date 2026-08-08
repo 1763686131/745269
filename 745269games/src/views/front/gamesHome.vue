@@ -151,10 +151,7 @@
             
             <div class="game-grid-layout">
               <article 
-                class="game-card" 
-                v-for="game in searchResults" 
-                :key="game.id"
-              >
+                class="game-card" v-for="game in searchResults" :key="game.id" @click="router.push(`/game/${game.id}`)">
                 <div class="card-image-wrapper">
                   <img v-if="game.media?.cover" :src="game.media.cover" alt="cover" class="actual-cover-image">
                   <div v-else class="image-placeholder">
@@ -222,6 +219,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '@/store/gameStore'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 
 // ---------- 主题切换核心逻辑 ----------

@@ -27,6 +27,7 @@
   --border-light: #F1F5F9;        /* 极浅分割线 */
   --border-main: #E2E8F0;         /* 常用输入框边框 */
   --border-dark: #CBD5E1;         /* 较深边框 */
+  --border-hover: #a8e2cf;         /* 悬浮边框 */
 
   /* 5. 状态与分类标签色 (Status & Tags) - 通常暗黑模式这些颜色不用大改，本身就很醒目 */
   --color-success: #10B981;       /* 成功/多人局域网 */
@@ -59,6 +60,7 @@ html.dark {
   /* 暗黑边框色反转 */
   --border-light: #1E293B;        /* 极暗分割线 */
   --border-main: #334155;         /* 常用深灰边框 */
+  --border-hover: #64748B;         /* 悬浮边框 */
   --border-dark: #475569;         /* 较亮的边框 */
 }
 
