@@ -4,7 +4,7 @@
     <div class="page-header-container">
       <div class="header-content">
         <h1 class="category-title">
-          <span class="cyber-accent">/</span> 全部游戏库
+          <span class="cyber-accent">⬅️</span> 全部游戏库
         </h1>
         <p class="category-subtitle">为您找到 {{ totalCount }} 款精彩游戏</p>
       </div>
