@@ -10,6 +10,66 @@ export const useGameStore = defineStore('game', () => {
   const currentOffset = ref(0)
   const hasMore = ref(true)
 
+  // 💡 无敌组装机：自动把数据库的散装字段 (title_zh, downloads_json) 
+  // 100% 还原成首页的标准嵌套结构 (title: {zh_CN}, downloads: [])
+  const parseGameData = (rawGame) => {
+    if (!rawGame) return null
+    const game = { ...rawGame }
+
+    // ======== 🎯 核心修复：把扁平的数据库字段，组装成页面 v-for 需要的标准结构 ========
+    
+    // 1. 组装标题
+    if (game.title_zh !== undefined || game.title_en !== undefined) {
+      game.title = {
+        zh_CN: game.title_zh || '',
+        en_US: game.title_en || ''
+      }
+    }
+
+    // 2. 组装媒体图片
+    if (game.cover_url !== undefined || game.media_screenshots_json !== undefined) {
+      let screenshots = []
+      if (game.media_screenshots_json) {
+        try { screenshots = JSON.parse(game.media_screenshots_json) } catch (e) {}
+      }
+      game.media = {
+        cover: game.cover_url || '',
+        screenshots: screenshots
+      }
+    }
+
+    // 3. 组装下载列表
+    if (game.downloads_json) {
+      try { game.downloads = JSON.parse(game.downloads_json) } catch (e) {}
+    }
+
+    // 4. 组装别名
+    if (game.aliases_json) {
+      try { game.aliases = JSON.parse(game.aliases_json) } catch (e) {}
+    }
+
+    // 5. 组装分类元数据
+    if (game.metadata_json) {
+      try { game.metadata = JSON.parse(game.metadata_json) } catch (e) {}
+    }
+
+    // =====================================================================
+
+    // 兜底兼容：如果是首页搜索返回的本来就是标准结构，确保里面的字符串被转成对象
+    const jsonFields = ['title', 'media', 'metadata', 'downloads', 'aliases']
+    jsonFields.forEach(field => {
+      if (typeof game[field] === 'string') {
+        try {
+          game[field] = JSON.parse(game[field])
+        } catch (e) {
+          console.error(`解析 ${field} 失败:`, e)
+        }
+      }
+    })
+
+    return game
+  }
+
   // 1. 获取分页游戏列表
   const fetchGames = async (isLoadMore = false) => {
     if (isLoading.value || (!hasMore.value && isLoadMore)) return
@@ -24,7 +84,9 @@ export const useGameStore = defineStore('game', () => {
       if (!response.ok) throw new Error('网络请求失败')
       const data = await response.json()
       if (data.length < 10) hasMore.value = false
-      allGames.value.push(...data)
+      
+      const parsedData = (Array.isArray(data) ? data : []).map(parseGameData)
+      allGames.value.push(...parsedData)
       currentOffset.value += 10
     } catch (error) {
       console.error('获取游戏列表失败:', error)
@@ -85,33 +147,55 @@ export const useGameStore = defineStore('game', () => {
     } catch (error) { return null }
   }
 
-  // ================= 🌟 5. 真实服务端搜索 API 请求 (带错误深度侦测) =================
+  // ================= 🌟 5. 真实服务端搜索 API 请求 =================
   const fetchSearchFromServer = async (keyword) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/games/search?q=${encodeURIComponent(keyword)}`)
-      
-      // 如果后端没返回 200，截获真实报错文本！
       if (!response.ok) {
         const errText = await response.text()
         throw new Error(`[HTTP 状态码: ${response.status}] 详情: ${errText}`)
       }
+      const data = await response.json()
       
-      return await response.json()
+      const parsedData = (Array.isArray(data) ? data : []).map(parseGameData)
+      allGames.value = parsedData
+      return parsedData
     } catch (error) {
-      // 在控制台用大红字打印到底是因为啥失败的
-      console.error('%c🚨 服务端搜索崩溃了！具体错误原因如下：', 'color: white; background: red; font-size: 14px; padding: 4px;', error.message)
+      console.error('%c🚨 服务端搜索崩溃了！', 'color: white; background: red; font-size: 14px; padding: 4px;', error.message)
       return [] 
     }
   }
 
-  // 6. 后台表格数据清洗引擎
+  // ================= 🌟 6. 按 ID 获取单条数据 =================
+  const fetchGameById = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games/${id}`)
+      if (!response.ok) throw new Error('未找到该游戏')
+      
+      const rawData = await response.json()
+      const singleRaw = Array.isArray(rawData) ? rawData[0] : rawData
+      
+      // 🎯 无论数据库吐出来多丑的数据，直接被 parseGameData 组装成标准结构！
+      const parsedGame = parseGameData(singleRaw)
+      
+      if (parsedGame) {
+        allGames.value = [parsedGame] // 依然存进 Pinia 给你备用
+      }
+      return parsedGame
+    } catch (error) {
+      console.error('获取单条游戏失败:', error)
+      return null
+    }
+  }
+
+  // 7. 后台表格数据清洗引擎
   const formatAdminTableData = (rawGamesArray) => {
     return rawGamesArray.map(game => ({
       id: game.id,
-      cover: game.media?.cover || '',
-      nameZh: game.title?.zh_CN || '未命名',
-      nameEn: game.title?.en_US || '',
-      date: game.system?.created_at ? new Date(game.system.created_at).toLocaleDateString() : '-',
+      cover: game.media?.cover || game.cover_url || '',
+      nameZh: game.title?.zh_CN || game.title_zh || '未命名',
+      nameEn: game.title?.en_US || game.title_en || '',
+      date: game.system?.created_at || game.created_at ? new Date(game.system?.created_at || game.created_at).toLocaleDateString() : '-',
       platforms: game.metadata?.platforms || [],
       tags: game.metadata?.genres || [],
       downloads: game.downloads?.length || 0,
@@ -128,6 +212,7 @@ export const useGameStore = defineStore('game', () => {
     deleteGame,
     uploadImage,
     fetchSearchFromServer, 
+    fetchGameById,
     formatAdminTableData 
   }
 })

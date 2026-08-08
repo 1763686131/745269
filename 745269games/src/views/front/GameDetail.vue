@@ -7,7 +7,7 @@
           返回上一级
         </button>
 
-        <div class="download-container mt-2" v-if="game && game.downloads">
+        <div class="download-container mt-2" v-if="game && game.downloads && game.downloads.length">
           <div v-for="(dl, index) in game.downloads" :key="index" class="version-block">
             <div class="version-title">
               {{ dl.platform }} {{ dl.version }}版本
@@ -83,7 +83,7 @@
 
                 <div class="tag-group mt-2">
                   <span class="pill-tag">
-                    switch版本:{{ formatNoComma(game.downloads[0]?.edition || '标准版') }}
+                    switch版本: {{ formatNoComma(game.downloads?.[0]?.edition || '标准版') }}
                   </span>
                 </div>
               </div>
@@ -160,36 +160,25 @@ const isLoading = ref(true)
 
 const platformIcons = computed(() => {
   if (!game.value?.downloads || game.value.downloads.length === 0) return []
-  
-  const uniquePlatforms = [...new Set(game.value.downloads.map(d => String(d.platform).toUpperCase()))]
-  
+  const uniquePlatforms = [...new Set(game.value.downloads.map(d => String(d.platform || '').toUpperCase()))]
   return uniquePlatforms.map(p => {
     if (p.includes('SWITCH')) return { name: p, src: '../../../dist/icon/switch.png' }
     if (p.includes('PC')) return { name: p, src: '../../../dist/icon/pc.png' }
-    if (p.includes('PS4')) return { name: p, src: '../../../dist/icon/playstation.png' }
+    if (p.includes('PS4') || p.includes('PS5')) return { name: p, src: '../../../dist/icon/playstation.png' }
     return { name: p, src: null }
   })
 })
 
 const isPreviewOpen = ref(false)
 const currentPreviewIndex = ref(0)
-
-const openPreview = (index) => {
-  currentPreviewIndex.value = index
-  isPreviewOpen.value = true
-}
-const closePreview = () => {
-  isPreviewOpen.value = false
-}
-
+const openPreview = (index) => { currentPreviewIndex.value = index; isPreviewOpen.value = true }
+const closePreview = () => { isPreviewOpen.value = false }
 const nextPreview = () => {
-  if (!game.value?.media?.screenshots) return
-  const total = game.value.media.screenshots.length 
-  currentPreviewIndex.value = (currentPreviewIndex.value + 1) % total
+  if (!game.value?.media?.screenshots || game.value.media.screenshots.length === 0) return
+  currentPreviewIndex.value = (currentPreviewIndex.value + 1) % game.value.media.screenshots.length
 }
-
 const prevPreview = () => {
-  if (!game.value?.media?.screenshots) return
+  if (!game.value?.media?.screenshots || game.value.media.screenshots.length === 0) return
   const total = game.value.media.screenshots.length
   currentPreviewIndex.value = (currentPreviewIndex.value - 1 + total) % total
 }
@@ -201,14 +190,22 @@ const formatNoComma = (text) => {
 
 const safeArray = (data, fallback) => {
   if (Array.isArray(data)) return data
-  if (typeof data === 'string') return data.split(/,|，/)
+  if (typeof data === 'string') {
+    try {
+      const arr = JSON.parse(data)
+      if (Array.isArray(arr)) return arr
+    } catch {
+      return data.split(/,|，/)
+    }
+  }
   return fallback
 }
 
 onMounted(async () => {
   const targetId = String(route.params.id)
-  const gameList = gameStore.games || gameStore.allGames || gameStore.searchResults || []
-  const localGame = gameList.find(g => String(g.id) === targetId)
+  
+  // 1. 先从 Pinia 本地找
+  let localGame = (gameStore.allGames || []).find(g => String(g.id) === targetId)
 
   if (localGame) {
     game.value = localGame
@@ -216,17 +213,16 @@ onMounted(async () => {
     return
   }
 
+  // 2. 本地没有（按 F5 刷新了），调用 fetchGameById
   try {
     isLoading.value = true
-    if (typeof gameStore.fetchGames === 'function') {
-      await gameStore.fetchGames()
-    } else if (typeof gameStore.fetchSearchFromServer === 'function') {
-      await gameStore.fetchSearchFromServer('')
+    // store 内会自动用 parseGameData 解析并同步存入 gameStore.allGames，保证数据结构 100% 相同
+    const fetchedGame = await gameStore.fetchGameById(targetId)
+    if (fetchedGame) {
+      game.value = fetchedGame
     }
-    const refreshedList = gameStore.games || gameStore.allGames || gameStore.searchResults || []
-    game.value = refreshedList.find(g => String(g.id) === targetId) || null
   } catch (error) {
-    console.error('拉取游戏详情失败:', error)
+    console.error('拉取详情数据失败:', error)
   } finally {
     isLoading.value = false
   }
@@ -243,6 +239,7 @@ const copyLink = async (url, password) => {
   }
 }
 </script>
+
 
 <style scoped>
 .single-page-wrapper {
@@ -375,14 +372,12 @@ const copyLink = async (url, password) => {
   cursor: pointer;
 }
 
-/* ================== 定位修改核心区 ================== */
 .platform-icons-group {
-  position: absolute;   /* 绝对定位 */
-  bottom: 1.25rem;      /* 如果你需要让它靠上显示，把这行删掉换成 top: 4rem; */
-  right: 1.25rem;       /* 距离右侧边缘的距离 */
+  position: absolute;
+  bottom: 1.25rem;
+  right: 1.25rem;
   z-index: 10;
 }
-/* ==================================================== */
 
 .hero-content {
   display: flex;
@@ -423,7 +418,6 @@ const copyLink = async (url, password) => {
   object-fit: contain;
   border-radius: 0.65rem; 
   padding: 0.35rem;
-  /* box-shadow: 0 2px 5px rgba(0,0,0,0.03); */
 }
 .fallback-icon-text {
   font-size: 1rem;

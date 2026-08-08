@@ -163,6 +163,44 @@ export default {
         return new Response(JSON.stringify({ success: true, message: "游戏已删除" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // ==========================================
+      // 6. 获取单个游戏详情 (GET /api/games/:id)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "games" && pathParts[2] && request.method === "GET") {
+        const id = pathParts[2];
+        
+        // 1. 从 D1 数据库查询单条数据
+        const { results } = await env.DB.prepare("SELECT * FROM games WHERE id = ?").bind(id).all();
+        
+        if (results.length === 0) {
+          return new Response(JSON.stringify({ error: "未能找到该游戏" }), { 
+            status: 404, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          });
+        }
+        
+        let gameData = { ...results[0] };
+        
+        // 🎯 核心修复：把 D1 里的所有 JSON 字符串字段，自动还原成前端需要的对象/数组！
+        const jsonFields = ['title', 'media', 'metadata', 'downloads', 'aliases', 'system'];
+        jsonFields.forEach(field => {
+          if (typeof gameData[field] === 'string') {
+            try {
+              gameData[field] = JSON.parse(gameData[field]);
+            } catch (e) {
+              console.error(`解析字段 ${field} 失败:`, e);
+            }
+          }
+        });
+
+        // 2. 返回完全解包好的完整对象
+        return new Response(JSON.stringify(gameData), { 
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        });
+      }
+
+      
       // 🚨 兜底：如果你的请求没匹配到上面的任何路由，就会报 404
       return new Response(JSON.stringify({ error: "接口不存在或路径拼写错误" }), { 
         status: 404, 
@@ -177,5 +215,9 @@ export default {
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
+
+
+
+
   }
 };
