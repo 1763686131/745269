@@ -131,6 +131,7 @@
         <div class="feedback-modal-container">
           <header class="modal-header">
             <h3>📝 提交问题反馈</h3>
+            <!-- 安全验证 -->
             <div class="cf-turnstile" data-sitekey="0x4AAAAAAAiF-A9hD0fS1rB2"></div>
             <button class="close-btn" @click="showFeedbackModal = false">✕</button>
           </header>
