@@ -160,10 +160,6 @@
                   <div v-else class="image-placeholder">
                     <span class="placeholder-text">暂无封面</span>
                   </div>
-                  <div class="rating-badge">
-                    <span v-if="game.download_count > 0">🔥 {{ game.download_count }} </span>
-                    <span v-if="game.likes > 0">👍 {{ game.likes }}</span>
-                  </div>
                 </div>
                 
                 <div class="card-content">
@@ -715,38 +711,64 @@ const handlePlatformClick = (platform) => {
 
 .global-footer { width: 100%; padding: 28px 0; text-align: center; font-size: 13px; color: #94a3b8; border-top: 1px solid var(--border-light); }
 
-/* ==================== 📱 移动端自适应 ==================== */
+/* ==================== 📱 移动端自适应 (精细优化版) ==================== */
 @media (max-width: 992px) { 
   .hide-on-mobile { display: none !important; }
-  .mobile-hamburger-trigger { display: flex !important; }
+  .mobile-hamburger-trigger { display: flex !important; margin-left: auto; }
+  
+  /* 汉堡按钮动画 */
   .mobile-hamburger-trigger.menu-is-active .bar-line:nth-child(1) { transform: translateY(8px) rotate(45deg); }
   .mobile-hamburger-trigger.menu-is-active .bar-line:nth-child(2) { opacity: 0; }
   .mobile-hamburger-trigger.menu-is-active .bar-line:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
 
+  /* 导航栏内边距调整 */
+  .navbar-inner { padding: 0 20px; justify-content: space-between; }
+  .site-logo { font-size: 28px; } /* 缩小 Logo */
+  .theme-toggle-btn { margin-left: 10px; margin-right: 10px; width: 32px; height: 32px; }
+  .lang-toggle-btn { margin-right: 10px; padding: 0 12px; height: 32px; font-size: 13px; }
+
+  /* 移动端下拉菜单适配深色模式 */
   .mobile-dropdown-menu {
-    position: absolute; top: 120px; left: 0; width: 100%; background-color: #ffffff;
-    border-bottom: 1px solid #e2e8f0; padding: 24px; display: flex; flex-direction: column;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); z-index: 998;
+    position: absolute; top: 120px; left: 0; width: 100%; 
+    background-color: var(--bg-card); /* 使用变量支持深色模式 */
+    border-bottom: 1px solid var(--border-light); 
+    padding: 24px 20px; display: flex; flex-direction: column;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); z-index: 998;
   }
-  .lang-toggle-btn { margin-right: 16px; }
-  .mobile-categories { display: flex; flex-direction: column; gap: 16px; padding-bottom: 20px; }
-  .mobile-nav-item { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; color: #475569; text-decoration: none; }
-  .mobile-divider { width: 100%; height: 1px; background-color: #f1f5f9; margin-bottom: 20px; }
+  .mobile-categories { display: flex; flex-direction: column; gap: 16px; padding-bottom: 10px; }
+  .mobile-nav-item { 
+    display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; 
+    color: var(--text-main); /* 使用变量支持深色模式 */
+    text-decoration: none; padding: 8px 0;
+  }
+  .mobile-nav-item:active { color: var(--color-primary); }
+  .mobile-divider { width: 100%; height: 1px; background-color: var(--border-main); margin: 10px 0; }
 
-  /*  */
-  /* .mobile-platforms { display: flex; flex-direction: column; gap: 14px; } */
-  /* .mobile-menu-item { width: 100%; background-color: #f8fafc; color: #2563eb; border: 1px solid #e2e8f0; padding: 14px 0; font-size: 15px; font-weight: 700; border-radius: 10px; cursor: pointer; }
-  .mobile-menu-item:active { background-color: #2563eb; color: #ffffff; } */
-
-  .center-search-section { padding: 0 20px; }
-  
-  .search-content-wrapper { margin-top: 15vh; }
+  /* 搜索区域移动端优化 */
+  .center-search-section { padding: 0 16px; }
+  .search-content-wrapper { margin-top: 10vh; } /* 减少上边距 */
   .search-content-wrapper.is-searched { margin-top: 20px; }
-  .magnifier-icon { width: 20px; height: 20px; }
-  .search-go-btn { padding: 0 28px; font-size: 15px; }
-/* 卡片 */
-  .game-grid-layout { grid-template-columns: 1fr; } 
-  .menu-slide-enter-active, .menu-slide-leave-active { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-  .menu-slide-enter-from, .menu-slide-leave-to { opacity: 0; transform: translateY(-15px); }
+  
+  .brand-title-zone { margin-bottom: 24px; }
+  .brand-glitch-title { font-size: 42px; text-align: center; } /* 大幅缩小标题，居中对齐 */
+
+  .capsule-search-bar { height: 56px; border-radius: 28px; } /* 缩小搜索框高度 */
+  .search-icon-box { padding-left: 16px; }
+  .magnifier-icon { width: 18px; height: 18px; }
+  .search-core-input { font-size: 16px; padding: 0 12px; }
+  .search-go-btn { padding: 0 24px; font-size: 16px; border-radius: 0 28px 28px 0; } /* 调整按钮圆角 */
+
+  /* 结果区域移动端优化 */
+  .title-spacing { text-align: center; margin-bottom: 20px; font-size: 16px; } /* 结果提示居中 */
+  .game-grid-layout { grid-template-columns: 1fr; gap: 20px; } /* 单列，减小间距 */
+  
+  /* 卡片内部紧凑度调整 */
+  .card-content { padding: 16px; }
+  .game-title { font-size: 18px; }
+  .game-desc { font-size: 13px; margin-bottom: 16px; height: 40px; } /* 稍微压低高度 */
+  
+  /* 下拉动画 */
+  .menu-slide-enter-active, .menu-slide-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+  .menu-slide-enter-from, .menu-slide-leave-to { opacity: 0; transform: translateY(-20px); }
 }
 </style>
