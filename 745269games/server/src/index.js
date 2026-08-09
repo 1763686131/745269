@@ -307,6 +307,52 @@ export default {
         await env.DB.prepare("DELETE FROM feedbacks WHERE id = ?").bind(id).run();
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      // ==========================================
+      // 13. 管理员：获取用户列表 (GET /api/users)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "users" && request.method === "GET") {
+        const { results } = await env.DB.prepare(`
+          SELECT id, username, email, avatar_url, role, status, reputation, created_at, last_login_at 
+          FROM users ORDER BY id DESC LIMIT 100
+        `).all();
+        // 注意：出于安全考虑，绝对不能把 password 查出来返回给前端！
+        return new Response(JSON.stringify(results), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // ==========================================
+      // 14. 管理员：新增用户 (POST /api/users)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "users" && request.method === "POST") {
+        const body = await request.json();
+        
+        // 检查用户名是否重复
+        const existingUser = await env.DB.prepare("SELECT id FROM users WHERE username = ?").bind(body.username).first();
+        if (existingUser) {
+          return new Response(JSON.stringify({ success: false, error: "用户名已存在，请换一个" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        await env.DB.prepare(`
+          INSERT INTO users (username, password, email, role, status) VALUES (?, ?, ?, ?, ?)
+        `).bind(
+          body.username, 
+          body.password, // 实际商业环境这里要加盐 Hash 运算（如 bcrypt），现在本地测试直接存
+          body.email || '', 
+          body.role || 'user', 
+          'active'
+        ).run();
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // ==========================================
+      // 15. 管理员：删除用户 (DELETE /api/users/:id)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "users" && pathParts[2] && request.method === "DELETE") {
+        const id = pathParts[2];
+        await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
 
       // 🚨 兜底拦截器（千万保证这行代码在最后面，上面所有 if 没匹配到才会走到这里）
       return new Response(JSON.stringify({ error: "接口不存在或路径拼写错误" }), { 

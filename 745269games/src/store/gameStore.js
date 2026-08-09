@@ -282,6 +282,45 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  // 🌟 13. 获取用户列表
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users`)
+      if (!response.ok) throw new Error('获取用户失败')
+      return await response.json()
+    } catch (error) {
+      console.error(error)
+      return []
+    }
+  }
+
+  // 🌟 14. 添加新用户
+  const addUser = async (userData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      })
+      const result = await response.json()
+      if (!response.ok || !result.success) throw new Error(result.error || '添加失败')
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  // 🌟 15. 删除用户
+  const deleteUser = async (id) => {
+    if (!confirm('🚨 警告：确定要永久删除该用户吗？此操作无法撤销！')) return false
+    try {
+      await fetch(`${API_BASE_URL}/api/users/${id}`, { method: 'DELETE' })
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
 
   const historyTags = ref([])
 
@@ -327,6 +366,9 @@ export const useGameStore = defineStore('game', () => {
     submitFeedback,
     fetchFeedbacks,
     toggleFeedbackStatus,
-    deleteFeedback
+    deleteFeedback,
+    fetchUsers,
+    addUser,
+    deleteUser
   }
 })

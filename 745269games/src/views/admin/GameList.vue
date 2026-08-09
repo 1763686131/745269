@@ -18,7 +18,7 @@
           <div class="sub-menu-list">
             <a href="#" class="sub-item" :class="{ active: activeTab === 'games' }" @click.prevent="activeTab = 'games'">游戏列表</a>
             <a href="#" class="sub-item" :class="{ active: activeTab === 'feedback' }" @click.prevent="activeTab = 'feedback'">游客反馈</a>
-            <a href="#" class="sub-item">用户列表</a>
+            <a href="#" class="sub-item" :class="{ active: activeTab === 'users' }" @click.prevent="activeTab = 'users'">用户列表</a>
             <a href="#" class="sub-item">访问数据</a>
           </div>
         </div>
@@ -149,6 +149,7 @@
         </template>
 
         <FeedbackList v-else-if="activeTab === 'feedback'" />
+        <UserList v-else-if="activeTab === 'users'" />
 
       </div>
     </main>
@@ -158,10 +159,12 @@
 </template>
 
 <script setup>
+
 import { onMounted, ref, computed } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import GameFormModal from '@/components/admin/GameFormModal.vue' 
 import FeedbackList from '@/components/admin/FeedbackList.vue' // 👈 引入反馈组件
+import UserList from '@/components/admin/UserList.vue' // 👈 引入用户列表组件
 
 const gameStore = useGameStore()
 

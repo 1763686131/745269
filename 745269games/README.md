@@ -76,6 +76,8 @@ npx wrangler dev
 npx wrangler d1 execute games --local --file=./schema.sql
 ```
 
+npx wrangler d1 execute games --local --command="CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, email TEXT UNIQUE, avatar_url TEXT, role TEXT DEFAULT 'user', status TEXT DEFAULT 'active', reputation INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, last_login_at DATETIME); CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);"
+
 ### 数据库增加变量
 
 ```bash
