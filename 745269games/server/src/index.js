@@ -256,6 +256,23 @@ export default {
           return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
+      
+      // ==========================================
+      // 8. 互动引擎：增加下载量与赞爆数 (POST /api/games/:id/interact)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "games" && pathParts[3] === "interact" && request.method === "POST") {
+        const id = pathParts[2];
+        const body = await request.json();
+
+        // 根据前端传来的指令，决定是给 download_count 加 1 还是给 likes 加 1
+        if (body.type === 'download') {
+          await env.DB.prepare("UPDATE games SET download_count = COALESCE(download_count, 0) + 1 WHERE id = ?").bind(id).run();
+        } else if (body.type === 'like') {
+          await env.DB.prepare("UPDATE games SET likes = COALESCE(likes, 0) + 1 WHERE id = ?").bind(id).run();
+        }
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       
       // 🚨 兜底：如果你的请求没匹配到上面的任何路由，就会报 404

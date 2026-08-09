@@ -10,14 +10,11 @@ export const useGameStore = defineStore('game', () => {
   const currentOffset = ref(0)
   const hasMore = ref(true)
 
-  // 💡 无敌组装机：自动把数据库的散装字段 (title_zh, downloads_json) 
-  // 100% 还原成首页的标准嵌套结构 (title: {zh_CN}, downloads: [])
+  // 💡 无敌组装机：自动把数据库散装字段 (title_zh, video_url 等) 100% 组装为标准结构
   const parseGameData = (rawGame) => {
     if (!rawGame) return null
     const game = { ...rawGame }
-
-    // ======== 🎯 核心修复：把扁平的数据库字段，组装成页面 v-for 需要的标准结构 ========
-    
+    game.likesCount = game.likes || 0;
     // 1. 组装标题
     if (game.title_zh !== undefined || game.title_en !== undefined) {
       game.title = {
@@ -26,51 +23,44 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // 2. 组装媒体图片
-    if (game.cover_url !== undefined || game.media_screenshots_json !== undefined) {
-      let screenshots = []
-      if (game.media_screenshots_json) {
-        try { screenshots = JSON.parse(game.media_screenshots_json) } catch (e) {}
-      }
-      game.media = {
-        cover: game.cover_url || '',
-        screenshots: screenshots
-      }
+
+
+    // 2. 组装媒体图片与视频 (防刷新丢失核心：多重提取 video)
+    let screenshots = []
+    if (game.media_screenshots_json) {
+      try { screenshots = JSON.parse(game.media_screenshots_json) } catch (e) {}
+    } else if (Array.isArray(game.media?.screenshots)) {
+      screenshots = game.media.screenshots
+    }
+
+    const coverUrl = game.cover_url || game.media?.cover || ''
+    const videoUrl = game.video_url || game.media?.video || ''
+
+    game.media = {
+      cover: coverUrl,
+      screenshots: screenshots,
+      video: videoUrl // 👈 无论从哪拿到的，强行挂载到 media.video
     }
 
     // 3. 组装下载列表
-    if (game.downloads_json) {
+    if (game.downloads_json && typeof game.downloads_json === 'string') {
       try { game.downloads = JSON.parse(game.downloads_json) } catch (e) {}
     }
 
-    // 4. 组装别名
-    if (game.aliases_json) {
+    // 4. 组装别名/语言
+    if (game.aliases_json && typeof game.aliases_json === 'string') {
       try { game.aliases = JSON.parse(game.aliases_json) } catch (e) {}
     }
 
     // 5. 组装分类元数据
-    if (game.metadata_json) {
+    if (game.metadata_json && typeof game.metadata_json === 'string') {
       try { game.metadata = JSON.parse(game.metadata_json) } catch (e) {}
     }
-
-    // =====================================================================
-
-    // 兜底兼容：如果是首页搜索返回的本来就是标准结构，确保里面的字符串被转成对象
-    const jsonFields = ['title', 'media', 'metadata', 'downloads', 'aliases']
-    jsonFields.forEach(field => {
-      if (typeof game[field] === 'string') {
-        try {
-          game[field] = JSON.parse(game[field])
-        } catch (e) {
-          console.error(`解析 ${field} 失败:`, e)
-        }
-      }
-    })
 
     return game
   }
 
-  // 1. 获取游戏列表 (支持按批次拉取并存入内存，供本地筛选)
+  // 1. 获取游戏列表
   const fetchGames = async (isLoadMore = false, tags = '') => {
     if (isLoading.value || (!hasMore.value && isLoadMore)) return
     isLoading.value = true
@@ -81,9 +71,7 @@ export const useGameStore = defineStore('game', () => {
         hasMore.value = true
       }
       
-      // 🚀 每次从服务器拿 20 条数据，剩下的筛选工作交给本地 Pinia！
       const fetchLimit = 20; 
-      
       let url = `${API_BASE_URL}/api/games?limit=${fetchLimit}&offset=${currentOffset.value}`
       if (tags) {
         url += `&tags=${encodeURIComponent(tags)}`
@@ -157,7 +145,7 @@ export const useGameStore = defineStore('game', () => {
     } catch (error) { return null }
   }
 
-  // ================= 🌟 5. 真实服务端搜索 API 请求 =================
+  // 5. 真实服务端搜索 API 请求
   const fetchSearchFromServer = async (keyword) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/games/search?q=${encodeURIComponent(keyword)}`)
@@ -166,17 +154,16 @@ export const useGameStore = defineStore('game', () => {
         throw new Error(`[HTTP 状态码: ${response.status}] 详情: ${errText}`)
       }
       const data = await response.json()
-      
       const parsedData = (Array.isArray(data) ? data : []).map(parseGameData)
       allGames.value = parsedData
       return parsedData
     } catch (error) {
-      console.error('%c🚨 服务端搜索崩溃了！', 'color: white; background: red; font-size: 14px; padding: 4px;', error.message)
+      console.error('服务端搜索失败:', error.message)
       return [] 
     }
   }
 
-  // ================= 🌟 6. 按 ID 获取单条数据 =================
+  // 6. 按 ID 获取单条数据 (刷新防丢数据核心)
   const fetchGameById = async (id) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/games/${id}`)
@@ -184,12 +171,10 @@ export const useGameStore = defineStore('game', () => {
       
       const rawData = await response.json()
       const singleRaw = Array.isArray(rawData) ? rawData[0] : rawData
-      
-      // 🎯 无论数据库吐出来多丑的数据，直接被 parseGameData 组装成标准结构！
       const parsedGame = parseGameData(singleRaw)
       
       if (parsedGame) {
-        allGames.value = [parsedGame] // 依然存进 Pinia 给你备用
+        allGames.value = [parsedGame]
       }
       return parsedGame
     } catch (error) {
@@ -198,7 +183,7 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  // 7. 后台表格数据清洗引擎
+  // 7. 后台表格数据清洗
   const formatAdminTableData = (rawGamesArray) => {
     return rawGamesArray.map(game => ({
       id: game.id,
@@ -213,9 +198,23 @@ export const useGameStore = defineStore('game', () => {
     }))
   }
 
+  // 🌟 8. 互动接口：悄悄给服务器发送 +1 指令
+  const recordInteraction = async (id, type) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/games/${id}/interact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }) // type 是 'download' 或者 'like'
+      })
+    } catch (error) {
+      console.error('更新互动数据失败:', error)
+    }
+  }
+
+
+
   const historyTags = ref([])
 
-  // 去服务器拉取全局标签
   const fetchTags = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/tags`)
@@ -227,7 +226,6 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  // 把新标签存入服务器
   const saveTags = async (tagsArray) => {
     try {
       await fetch(`${API_BASE_URL}/api/tags`, {
@@ -235,7 +233,7 @@ export const useGameStore = defineStore('game', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tags: tagsArray })
       })
-      await fetchTags() // 存完后重新拉取一次最新列表
+      await fetchTags()
     } catch (error) {
       console.error('保存标签失败:', error)
     }
@@ -254,6 +252,7 @@ export const useGameStore = defineStore('game', () => {
     formatAdminTableData,
     historyTags,
     fetchTags,
-    saveTags
+    saveTags,
+    recordInteraction
   }
 })

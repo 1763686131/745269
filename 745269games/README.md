@@ -81,3 +81,5 @@ npx wrangler d1 execute games --local --file=./schema.sql
 ```bash
 npx wrangler d1 execute games --local --command="ALTER TABLE games ADD COLUMN video_url TEXT;"
 ```
+
+npx wrangler d1 execute games --local --command="ALTER TABLE games ADD COLUMN download_count INTEGER DEFAULT 0;"

@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS games (
   
   -- 🎬 视频预告片 (外链/iframe地址)
   video_url TEXT,
+  download_count INTEGER DEFAULT 0,
+  likes INTEGER DEFAULT 0,
   
   is_active BOOLEAN DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
