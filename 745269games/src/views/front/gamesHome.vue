@@ -153,20 +153,24 @@
             <div class="game-grid-layout">
               <article 
                 class="game-card" v-for="game in searchResults" :key="game.id" @click="router.push(`/game/${game.id}`)">
+
+
                 <div class="card-image-wrapper">
                   <img v-if="game.media?.cover" :src="game.media.cover" alt="cover" class="actual-cover-image">
                   <div v-else class="image-placeholder">
                     <span class="placeholder-text">暂无封面</span>
                   </div>
-                  <div class="rating-badge" v-if="game.download_count > 0">🔥 {{ game.download_count }} 下载</div>
+                  <div class="rating-badge">
+                    <span v-if="game.download_count > 0">🔥 {{ game.download_count }} </span>
+                    <span v-if="game.likes > 0">👍 {{ game.likes }}</span>
+                  </div>
                 </div>
                 
-                <!-- 游戏信息内容 -->
                 <div class="card-content">
                   
                   <div class="title-row">
                     <h2 class="game-title">{{ game.title?.zh_CN || game.title?.en_US || '未命名游戏' }}</h2>
-                    <!-- <span class="hardcode-rating">⭐ 9.8</span> -->
+                    <span class="hardcode-rating" v-if="game.metadata?.rating">⭐ {{ game.metadata.rating }}</span>
                   </div>
 
                   <p class="game-desc">{{ game.description || '暂无简介，尽情探索吧！' }}</p>

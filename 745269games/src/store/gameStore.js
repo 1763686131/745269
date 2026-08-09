@@ -14,7 +14,7 @@ export const useGameStore = defineStore('game', () => {
   const parseGameData = (rawGame) => {
     if (!rawGame) return null
     const game = { ...rawGame }
-    game.likesCount = game.likes || 0;
+    
     // 1. 组装标题
     if (game.title_zh !== undefined || game.title_en !== undefined) {
       game.title = {
@@ -22,8 +22,6 @@ export const useGameStore = defineStore('game', () => {
         en_US: game.title_en || ''
       }
     }
-
-
 
     // 2. 组装媒体图片与视频 (防刷新丢失核心：多重提取 video)
     let screenshots = []
@@ -39,7 +37,7 @@ export const useGameStore = defineStore('game', () => {
     game.media = {
       cover: coverUrl,
       screenshots: screenshots,
-      video: videoUrl // 👈 无论从哪拿到的，强行挂载到 media.video
+      video: videoUrl 
     }
 
     // 3. 组装下载列表
@@ -56,6 +54,23 @@ export const useGameStore = defineStore('game', () => {
     if (game.metadata_json && typeof game.metadata_json === 'string') {
       try { game.metadata = JSON.parse(game.metadata_json) } catch (e) {}
     }
+
+    // 🌟 6. 兜底兼容与互动数据补全 (必须放在最后执行！)
+    const jsonFields = ['title', 'media', 'metadata', 'downloads', 'aliases']
+    jsonFields.forEach(field => {
+      if (typeof game[field] === 'string') {
+        try {
+          game[field] = JSON.parse(game[field])
+        } catch (e) {
+          console.error(`解析 ${field} 失败:`, e)
+        }
+      }
+    })
+
+    // 强行挂载互动数据，保证所有 UI 组件都能读到数字，不会变成 undefined
+    game.likes = game.likes || 0;
+    game.likesCount = game.likes; 
+    game.download_count = game.download_count || 0;
 
     return game
   }

@@ -22,26 +22,28 @@ export default {
       // 🛡️ 全局防刷/节流引擎 (只限制写操作)
       if (request.method === "POST" || request.method === "PUT" || request.method === "DELETE") {
         
-        // 🎯 核心修复：把认 IP 的“全局锁”改为“IP + 具体接口”的独立锁！
-        // 比如 '127.0.0.1_tags' 和 '127.0.0.1_games' 是两把不同的锁，互不影响
-        const apiType = pathParts[1] || "general"; 
-        const limitKey = `${clientIP}_${apiType}`;
+        // 🌟 核心修复：如果是点赞/下载的 interact 互动接口，直接放行，不参与 10 秒死锁！
+        // 因为前端已经做了严格的 10 秒防抖，这里再锁会导致同时提交下载和点赞时报 429
+        if (pathParts[3] !== "interact") {
+          const apiType = pathParts[1] || "general"; 
+          const limitKey = `${clientIP}_${apiType}`;
 
-        if (rateLimitMap.has(limitKey)) {
-          const unlockTime = rateLimitMap.get(limitKey);
-          if (now < unlockTime) {
-            const remaining = Math.ceil((unlockTime - now) / 1000);
-            return new Response(JSON.stringify({ 
-              success: false, 
-              error: `操作过于频繁，已被服务端拦截！请等待 ${remaining} 秒后再试` 
-            }), { 
-              status: 429, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            });
+          if (rateLimitMap.has(limitKey)) {
+            const unlockTime = rateLimitMap.get(limitKey);
+            if (now < unlockTime) {
+              const remaining = Math.ceil((unlockTime - now) / 1000);
+              return new Response(JSON.stringify({ 
+                success: false, 
+                error: `操作过于频繁，已被服务端拦截！请等待 ${remaining} 秒后再试` 
+              }), { 
+                status: 429, 
+                headers: { ...corsHeaders, "Content-Type": "application/json" } 
+              });
+            }
           }
+          // 普通后台操作（如修改游戏、传数据）继续严密锁定 10 秒
+          rateLimitMap.set(limitKey, now + 10 * 1000);
         }
-        // 锁定 10 秒
-        rateLimitMap.set(limitKey, now + 10 * 1000);
       }
 
       // ==========================================
@@ -90,6 +92,7 @@ export default {
           metadata: JSON.parse(row.metadata_json || '{"platforms":[],"genres":[]}'),
           downloads: JSON.parse(row.downloads_json || '[]'),
           download_count: row.download_count || 0, 
+          likes: row.likes || 0,
           system: { is_active: row.is_active, created_at: row.created_at, updated_at: row.updated_at }
         }));
 
@@ -121,6 +124,7 @@ export default {
           metadata: JSON.parse(row.metadata_json || '{"platforms":[],"genres":[]}'),
           downloads: JSON.parse(row.downloads_json || '[]'),
           download_count: row.download_count || 0,
+          likes: row.likes || 0,
           system: { is_active: row.is_active, created_at: row.created_at, updated_at: row.updated_at }
         }));
 
@@ -256,7 +260,7 @@ export default {
           return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
-      
+
       // ==========================================
       // 8. 互动引擎：增加下载量与赞爆数 (POST /api/games/:id/interact)
       // ==========================================
