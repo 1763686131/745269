@@ -81,6 +81,9 @@ npx wrangler d1 execute games --local --command="CREATE TABLE IF NOT EXISTS user
 
 npx wrangler d1 execute games --local --command="CREATE TABLE IF NOT EXISTS site_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_ip TEXT NOT NULL, path TEXT NOT NULL, user_agent TEXT, referer TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE INDEX IF NOT EXISTS idx_site_logs_created_at ON site_logs(created_at DESC); CREATE INDEX IF NOT EXISTS idx_site_logs_ip ON site_logs(user_ip);"
 
+
+npx wrangler d1 execute games --local --command="CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT PRIMARY KEY, attempts INTEGER DEFAULT 0, last_attempt DATETIME DEFAULT CURRENT_TIMESTAMP);"
+
 ### 数据库增加变量
 
 ```bash

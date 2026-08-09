@@ -6,6 +6,7 @@ const API_BASE_URL = 'http://localhost:8787'
 export const useGameStore = defineStore('game', () => {
   const isLoading = ref(false)
   const allGames = ref([]) 
+  const isAdminLoggedIn = ref(localStorage.getItem('745269_admin_token') ? true : false)
   
   const currentOffset = ref(0)
   const hasMore = ref(true)
@@ -343,6 +344,33 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  // 🌟 18. 后台登录校验与验证码触发
+  const adminLogin = async (username, password) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+      const result = await response.json()
+      
+      if (result.success) {
+        isAdminLoggedIn.value = true
+        localStorage.setItem('745269_admin_token', result.token) // 签发本地门票
+        return { success: true }
+      } else {
+        return { success: false, error: result.error, requireCaptcha: result.requireCaptcha }
+      }
+    } catch (error) {
+      return { success: false, error: '网络错误，无法连接到验证服务器' }
+    }
+  }
+
+  // 🌟 19. 退出登录
+  const adminLogout = () => {
+    isAdminLoggedIn.value = false
+    localStorage.removeItem('745269_admin_token')
+  }
 
   const historyTags = ref([])
 
@@ -393,6 +421,9 @@ export const useGameStore = defineStore('game', () => {
     addUser,
     deleteUser,
     fetchAnalyticsSummary,
-    fetchAccessLogs
+    fetchAccessLogs,
+    isAdminLoggedIn,
+    adminLogin,
+    adminLogout
   }
 })
