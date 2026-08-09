@@ -1,14 +1,19 @@
--- ⚠️ 警告：如果你想彻底清空所有本地数据重新开始，可以取消下面三行的注释
+-- =======================================================================
+-- 745269.com 核心数据库构建脚本 (完全优化版)
+-- ⚠️ 警告：如果你想彻底清空所有本地数据重新开始，可以取消下面四行的注释
 -- DROP TABLE IF EXISTS games;
 -- DROP TABLE IF EXISTS game_tags;
 -- DROP TABLE IF EXISTS feedbacks;
+-- DROP TABLE IF EXISTS users;
+-- =======================================================================
+
 
 -- =========================================================
--- 1. 游戏主体表 (Games)
+-- 1. 游戏主体核心表 (Games)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS games (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  uuid TEXT UNIQUE NOT NULL,  -- 🌟 优化：UUID 加上 UNIQUE 唯一约束
+  uuid TEXT UNIQUE NOT NULL,  
   title_zh TEXT NOT NULL,
   title_en TEXT,
   cover_url TEXT,
@@ -30,14 +35,21 @@ CREATE TABLE IF NOT EXISTS games (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 🚀 性能优化：为游戏标题和 UUID 建立索引，让首页的搜索接口快如闪电！
+-- 🚀 基础搜索查询优化
 CREATE INDEX IF NOT EXISTS idx_games_title_zh ON games(title_zh);
 CREATE INDEX IF NOT EXISTS idx_games_title_en ON games(title_en);
 CREATE INDEX IF NOT EXISTS idx_games_uuid ON games(uuid);
 
+-- 🚀 极速排序优化 (核心！大厂必备)
+-- 对应前端页面的 "最新发布"、"热门下载"、"赞爆最多" 功能。
+-- 加了 DESC 降序索引后，获取前20名热门游戏的 SQL 查询将从全表扫描变为瞬间读取！
+CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_games_download_count ON games(download_count DESC);
+CREATE INDEX IF NOT EXISTS idx_games_likes ON games(likes DESC);
+
 
 -- =========================================================
--- 2. 游戏分类/标签历史记录表 (Tags)
+-- 2. 全局游戏分类/标签池 (Tags)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS game_tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,18 +58,55 @@ CREATE TABLE IF NOT EXISTS game_tags (
 
 
 -- =========================================================
--- 3. 🌟 新增：用户反馈与纠错表 (Feedbacks)
+-- 3. 玩家错误反馈与修补表 (Feedbacks)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS feedbacks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  game_id TEXT NOT NULL,        -- 关联的游戏 ID
-  game_name TEXT NOT NULL,      -- 关联的游戏名称
-  contact_info TEXT,            -- 玩家联系方式 (选填)
-  content TEXT NOT NULL,        -- 报错详细内容
-  user_ip TEXT NOT NULL,        -- 玩家真实 IP (用于防刷拦截)
-  is_handled BOOLEAN DEFAULT 0, -- 🌟 优化：方便你以后做后台(0=未处理, 1=已修复)
+  game_id INTEGER NOT NULL,     -- 🌟 优化：改为了 INTEGER，完美匹配 games 表的 id 类型
+  game_name TEXT NOT NULL,      
+  contact_info TEXT,            
+  content TEXT NOT NULL,        
+  user_ip TEXT NOT NULL,        
+  is_handled BOOLEAN DEFAULT 0, 
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 🚀 性能优化：为 IP 和时间建立联合索引，让后端防刷查询瞬间完成，绝不卡顿！
+-- 🚀 防刷引擎专享索引 (IP + 时间组合查询)
 CREATE INDEX IF NOT EXISTS idx_feedbacks_ip_time ON feedbacks(user_ip, created_at);
+
+-- 🚀 后台管理员专享索引：让你在后台秒速筛选出所有 "未处理(0)" 的待办反馈
+CREATE INDEX IF NOT EXISTS idx_feedbacks_is_handled ON feedbacks(is_handled);
+
+
+-- =========================================================
+-- 4. 论坛社区/全站用户表 (Users) 
+-- (💡 提前为你日后的论坛和积分系统挖好坑)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  email TEXT UNIQUE,
+  avatar_url TEXT,
+  role TEXT DEFAULT 'user',      -- admin | user
+  status TEXT DEFAULT 'active',  -- active | banned
+  reputation INTEGER DEFAULT 0,  -- 论坛声望 / 积分余额
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_login_at DATETIME
+);
+
+-- =========================================================
+-- 5. 网站访问日志与流量分析表 (Site Logs)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS site_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_ip TEXT NOT NULL,
+  path TEXT NOT NULL,
+  user_agent TEXT,
+  referer TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 🚀 登录与查询优化
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

@@ -321,6 +321,28 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  // 🌟 16. 获取访问统计数据概要
+  const fetchAnalyticsSummary = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/analytics/summary`)
+      if (!res.ok) throw new Error('获取流量概要失败')
+      return await res.json()
+    } catch (error) {
+      return { todayPv: 0, todayUv: 0, totalVisits: 0, totalDownloads: 0 }
+    }
+  }
+
+  // 🌟 17. 获取实时访问日志明细
+  const fetchAccessLogs = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/analytics/logs`)
+      if (!res.ok) throw new Error('获取访问日志失败')
+      return await res.json()
+    } catch (error) {
+      return []
+    }
+  }
+
 
   const historyTags = ref([])
 
@@ -369,6 +391,8 @@ export const useGameStore = defineStore('game', () => {
     deleteFeedback,
     fetchUsers,
     addUser,
-    deleteUser
+    deleteUser,
+    fetchAnalyticsSummary,
+    fetchAccessLogs
   }
 })

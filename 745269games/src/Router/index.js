@@ -27,6 +27,11 @@ const routes = [
     path: '/Column/:id', // 匹配所有未定义的路由
     name: 'Column', // 游戏栏目
     component: Column 
+  },
+  // 🌟 5. 兜底路由：捕获所有未匹配的错误/乱码路径，统一重定向回首页
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 

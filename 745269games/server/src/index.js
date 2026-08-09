@@ -353,6 +353,35 @@ export default {
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // ==========================================
+      // 16. 管理员：获取访问数据概要 (GET /api/analytics/summary)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "analytics" && pathParts[2] === "summary" && request.method === "GET") {
+        // 今日 PV (今日总访问次数)
+        const todayPvRes = await env.DB.prepare("SELECT COUNT(*) as count FROM site_logs WHERE created_at > date('now', 'start of day')").first();
+        // 今日 UV (今日不同 IP 的数量)
+        const todayUvRes = await env.DB.prepare("SELECT COUNT(DISTINCT user_ip) as count FROM site_logs WHERE created_at > date('now', 'start of day')").first();
+        // 累计总访问量
+        const totalVisitsRes = await env.DB.prepare("SELECT COUNT(*) as count FROM site_logs").first();
+        // 累计总游戏下载数
+        const totalDownloadsRes = await env.DB.prepare("SELECT SUM(download_count) as total FROM games").first();
+
+        return new Response(JSON.stringify({
+          todayPv: todayPvRes?.count || 0,
+          todayUv: todayUvRes?.count || 0,
+          totalVisits: totalVisitsRes?.count || 0,
+          totalDownloads: totalDownloadsRes?.total || 0
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // ==========================================
+      // 17. 管理员：获取实时访问日志明细 (GET /api/analytics/logs)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "analytics" && pathParts[2] === "logs" && request.method === "GET") {
+        const { results } = await env.DB.prepare("SELECT * FROM site_logs ORDER BY id DESC LIMIT 50").all();
+        return new Response(JSON.stringify(results), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
 
       // 🚨 兜底拦截器（千万保证这行代码在最后面，上面所有 if 没匹配到才会走到这里）
       return new Response(JSON.stringify({ error: "接口不存在或路径拼写错误" }), { 
