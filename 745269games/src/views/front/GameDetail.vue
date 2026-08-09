@@ -20,11 +20,18 @@
             <span class="mini-badge" v-for="(p, i) in game.metadata?.platforms" :key="i">{{ String(p).toUpperCase() }}</span>
           </div>
         </div>
+        
         <div class="desc-card">
           <h3 class="section-title">📖 游戏简介</h3>
           <p class="desc-text">{{ game.description || '暂无详细文字介绍...' }}</p>
-          <div class="genre-tags-list" v-if="game.metadata?.genres && game.metadata.genres.length > 0">
-            <span v-for="(g, idx) in game.metadata.genres" :key="idx" class="genre-tag-pill"># {{ g }}</span>
+
+          <div class="genre-tags-list" v-if="(game.aliases && game.aliases.length > 0) || (game.metadata?.genres && game.metadata.genres.length > 0)">
+            <span v-for="(lang, idx) in game.aliases" :key="'lang-'+idx" class="lang-tag-pill">
+              🌐 {{ lang.replace(/,|，/g, ' ') }}
+            </span>
+            <span v-for="(g, idx) in game.metadata?.genres" :key="'g-'+idx" class="genre-tag-pill">
+              # {{ g }}
+            </span>
           </div>
         </div>
       </section>
@@ -139,8 +146,7 @@ const isLiked = ref(false)
 const activeMediaIndex = ref(0)
 let bannerTimer = null
 
-// ==================== 🌟 高级交互：智能防抖 (Debounce) ====================
-// 使用对象分别记录下载和点赞的定时器和状态
+// 智能防抖引擎
 const interactState = {
   download: { timer: null, pending: false },
   like: { timer: null, pending: false }
@@ -149,7 +155,6 @@ const interactState = {
 const handleInteraction = (type) => {
   if (!game.value) return
 
-  // 1. 瞬间更新本地 UI 视图（给予玩家最快反馈）
   if (type === 'download' && !interactState.download.pending) {
     game.value.download_count = (game.value.download_count || 0) + 1
     interactState.download.pending = true
@@ -159,20 +164,17 @@ const handleInteraction = (type) => {
     interactState.like.pending = true
   }
 
-  // 2. 清除并重启 10 秒定时器
   if (interactState[type].timer) {
     clearTimeout(interactState[type].timer)
   }
 
-  // 3. 开启 10 秒后勤发送任务
   interactState[type].timer = setTimeout(() => {
-    gameStore.recordInteraction(game.value.id, type) // 偷偷发送给服务器
-    interactState[type].pending = false // 释放状态，允许后续再次计次
+    gameStore.recordInteraction(game.value.id, type)
+    interactState[type].pending = false
     interactState[type].timer = null
   }, 10000)
 }
 
-// 复制按钮也会触发下载量 +1
 const handleCopy = async (text, typeName) => {
   handleInteraction('download')
   try {
@@ -182,7 +184,6 @@ const handleCopy = async (text, typeName) => {
     console.error('复制失败:', err)
   }
 }
-// =========================================================================
 
 const mediaList = computed(() => {
   const list = []
@@ -213,7 +214,6 @@ const mediaList = computed(() => {
 
 const currentMedia = computed(() => mediaList.value[activeMediaIndex.value] || null)
 
-// 彻底移除了鼠标悬浮干预，由系统自动判定是否处于视频状态
 const stopBannerTimer = () => {
   if (bannerTimer) { clearInterval(bannerTimer); bannerTimer = null }
 }
@@ -267,8 +267,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopBannerTimer()
-  
-  // 🌟 保底安全：如果玩家在 10 秒内退出了页面，立刻把还在等待的请求强制发送！
   if (interactState.download.timer) gameStore.recordInteraction(game.value.id, 'download')
   if (interactState.like.timer) gameStore.recordInteraction(game.value.id, 'like')
 })
@@ -296,6 +294,7 @@ const formatDate = (str) => {
 .left-info-column { display: flex; flex-direction: column; gap: 20px; }
 
 .poster-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+
 .poster-img { width: 100%; aspect-ratio: 0 / 4; object-fit: cover; border-radius: 12px; display: block; }
 .poster-placeholder { width: 100%; aspect-ratio: 3 / 4; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .poster-badge-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
@@ -307,8 +306,11 @@ const formatDate = (str) => {
 .playing-tag { font-size: 12px; color: #ec4899; background: rgba(236, 72, 153, 0.1); padding: 2px 10px; border-radius: 100px; }
 
 .desc-text { font-size: 14px; line-height: 1.7; color: var(--text-muted); white-space: pre-line; margin: 0 0 16px 0; }
+
+/* 🌟 多彩标签组 */
 .genre-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.genre-tag-pill { font-size: 12px; color: var(--color-primary); font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 4px 10px; border-radius: 100px; }
+.genre-tag-pill { font-size: 12px; color: var(--color-primary); font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(37, 99, 235, 0.15); }
+.lang-tag-pill { font-size: 12px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.08); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(16, 185, 129, 0.2); }
 
 .right-banner-column { height: 100%; }
 .banner-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; height: 100%; display: flex; flex-direction: column; }
@@ -377,16 +379,43 @@ const formatDate = (str) => {
 .spinner { width: 2.5rem; height: 2.5rem; border: 3px solid var(--border-main); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem;}
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@media (max-width: 900px) {
-  .middle-main-layout { grid-template-columns: 1fr; } 
-  .resources-grid-row { grid-template-columns: 1fr; }
-  .detail-top-header { flex-direction: column; gap: 10px; text-align: center; }
+/* ==================== 📱 移动端自适应 (精细重构版) ==================== */
+@media (max-width: 768px) {
+  .game-detail-container { padding: 16px 12px 60px 12px; }
+  
+  /* 顶部 Header */
+  .detail-top-header { flex-direction: column; gap: 12px; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; }
+  .center-title-box { text-align: left; width: 100%; }
+  .main-title-zh { font-size: 22px; }
+  .sub-title-en { font-size: 12px; }
   .header-placeholder { display: none; }
-  .interaction-bar-card { flex-direction: column; gap: 16px; align-items: stretch; text-align: center; }
-  .stats-left { justify-content: center; }
-  .like-action-btn { justify-content: center; }
+  .back-btn { font-size: 13px; padding: 6px 14px; }
+
+  /* 核心双栏切为单列 */
+  .middle-main-layout { grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
+  .poster-card { padding: 12px; }
+  .poster-img { max-height: 320px; object-fit: cover; } /* 限制海报在手机上的最大高度 */
+  
+  /* 描述与标签 */
+  .desc-card, .banner-card, .resource-card { padding: 16px; border-radius: 12px; }
+  .section-title, .card-head-title { font-size: 16px; margin-bottom: 12px; }
+  
+  /* 缩略图轨迹微调 */
+  .thumb-item { width: 80px; }
+
+  /* 底部互动栏 */
+  .bottom-action-layout { gap: 16px; }
+  .interaction-bar-card { flex-direction: column; gap: 12px; align-items: flex-start; padding: 16px; }
+  .stats-left { flex-direction: column; gap: 6px; font-size: 13px; width: 100%; }
+  .like-action-btn { width: 100%; justify-content: center; font-size: 14px; padding: 12px; }
+
+  /* 资源网盘卡片移动端适配 */
+  .resources-grid-row { grid-template-columns: 1fr; gap: 16px; }
+  .dl-group-item { padding: 12px; }
   .dl-plat-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-  .source-right { justify-content: flex-start; width: 100%; margin-top: 8px; }
-  .source-row { flex-direction: column; align-items: flex-start; }
+  .source-row { flex-direction: column; align-items: flex-start; gap: 10px; border-bottom: 1px solid var(--border-light); padding-bottom: 12px; }
+  .source-name { font-size: 14px; font-weight: 800; }
+  .source-right { justify-content: flex-start; width: 100%; gap: 8px; }
+  .action-btn, .download-link-btn { font-size: 12px; padding: 8px 12px; flex: 1; text-align: center; justify-content: center; }
 }
 </style>
