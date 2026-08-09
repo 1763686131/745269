@@ -245,6 +245,43 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  // 🌟 10. 管理员获取反馈列表
+  const fetchFeedbacks = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/feedbacks`)
+      if (!response.ok) throw new Error('拉取反馈失败')
+      return await response.json()
+    } catch (error) {
+      console.error('获取反馈失败:', error)
+      return []
+    }
+  }
+
+  // 🌟 11. 切换反馈处理状态 (已解决 / 未解决)
+  const toggleFeedbackStatus = async (id, isHandled) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/feedbacks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_handled: isHandled })
+      })
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  // 🌟 12. 删除单条反馈
+  const deleteFeedback = async (id) => {
+    if (!confirm('确定要清除这条反馈记录吗？')) return false
+    try {
+      await fetch(`${API_BASE_URL}/api/feedbacks/${id}`, { method: 'DELETE' })
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
 
   const historyTags = ref([])
 
@@ -287,6 +324,9 @@ export const useGameStore = defineStore('game', () => {
     fetchTags,
     saveTags,
     recordInteraction,
-    submitFeedback
+    submitFeedback,
+    fetchFeedbacks,
+    toggleFeedbackStatus,
+    deleteFeedback
   }
 })
