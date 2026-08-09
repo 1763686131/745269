@@ -1,7 +1,13 @@
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Origin": "*", // 生产环境建议把 * 改成你的真实域名，例如 "https://745269.com"
+  "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,DELETE,OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
+  
+  // 🛡️ 终极安全防御响应头
+  "X-Content-Type-Options": "nosniff", // 防止浏览器错误嗅探文件类型
+  "X-Frame-Options": "DENY",           // 严禁任何网站用 iframe 嵌套你的网站 (防点击劫持)
+  "X-XSS-Protection": "1; mode=block", // 强制开启浏览器的 XSS 防御
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains" // 强制 HTTPS 访问
 };
 
 const rateLimitMap = new Map();

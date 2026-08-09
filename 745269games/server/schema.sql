@@ -1,10 +1,12 @@
 -- =======================================================================
--- 745269.com 核心数据库构建脚本 (完全优化版)
--- ⚠️ 警告：如果你想彻底清空所有本地数据重新开始，可以取消下面四行的注释
+-- 745269.com 核心数据库构建脚本 (完全优化部署版)
+-- ⚠️ 警告：如果你想彻底清空所有本地数据重新开始，可以取消下面几行的注释
 -- DROP TABLE IF EXISTS games;
 -- DROP TABLE IF EXISTS game_tags;
 -- DROP TABLE IF EXISTS feedbacks;
 -- DROP TABLE IF EXISTS users;
+-- DROP TABLE IF EXISTS site_logs;
+-- DROP TABLE IF EXISTS login_attempts;
 -- =======================================================================
 
 
@@ -40,9 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_games_title_zh ON games(title_zh);
 CREATE INDEX IF NOT EXISTS idx_games_title_en ON games(title_en);
 CREATE INDEX IF NOT EXISTS idx_games_uuid ON games(uuid);
 
--- 🚀 极速排序优化 (核心！大厂必备)
--- 对应前端页面的 "最新发布"、"热门下载"、"赞爆最多" 功能。
--- 加了 DESC 降序索引后，获取前20名热门游戏的 SQL 查询将从全表扫描变为瞬间读取！
+-- 🚀 极速排序优化 (大厂必备)
 CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_games_download_count ON games(download_count DESC);
 CREATE INDEX IF NOT EXISTS idx_games_likes ON games(likes DESC);
@@ -62,25 +62,25 @@ CREATE TABLE IF NOT EXISTS game_tags (
 -- =========================================================
 CREATE TABLE IF NOT EXISTS feedbacks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  game_id INTEGER NOT NULL,     -- 🌟 优化：改为了 INTEGER，完美匹配 games 表的 id 类型
+  game_id INTEGER NOT NULL,     
   game_name TEXT NOT NULL,      
   contact_info TEXT,            
   content TEXT NOT NULL,        
   user_ip TEXT NOT NULL,        
   is_handled BOOLEAN DEFAULT 0, 
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  
+  -- 🌟 级联删除优化：当 games 表里对应的游戏被删除时，这条反馈记录自动被清除，绝不留死数据！
+  FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
 );
 
--- 🚀 防刷引擎专享索引 (IP + 时间组合查询)
+-- 🚀 防刷引擎与后台面板查询优化
 CREATE INDEX IF NOT EXISTS idx_feedbacks_ip_time ON feedbacks(user_ip, created_at);
-
--- 🚀 后台管理员专享索引：让你在后台秒速筛选出所有 "未处理(0)" 的待办反馈
 CREATE INDEX IF NOT EXISTS idx_feedbacks_is_handled ON feedbacks(is_handled);
 
 
 -- =========================================================
 -- 4. 论坛社区/全站用户表 (Users) 
--- (💡 提前为你日后的论坛和积分系统挖好坑)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,6 +95,11 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at DATETIME
 );
 
+-- 🚀 登录与查询优化
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+
 -- =========================================================
 -- 5. 网站访问日志与流量分析表 (Site Logs)
 -- =========================================================
@@ -107,6 +112,16 @@ CREATE TABLE IF NOT EXISTS site_logs (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 🚀 登录与查询优化
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+-- 🚀 统计优化：用于后台快速计算今日 PV、今日 UV 等
+CREATE INDEX IF NOT EXISTS idx_site_logs_created_at ON site_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_site_logs_ip ON site_logs(user_ip);
+
+
+-- =========================================================
+-- 6. 后台管理员防爆破拦截表 (Login Attempts)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS login_attempts (
+  ip TEXT PRIMARY KEY,           -- 攻击者的 IP 地址
+  attempts INTEGER DEFAULT 0,    -- 连续失败次数
+  last_attempt DATETIME DEFAULT CURRENT_TIMESTAMP
+);
