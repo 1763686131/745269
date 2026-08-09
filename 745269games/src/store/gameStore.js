@@ -225,7 +225,25 @@ export const useGameStore = defineStore('game', () => {
       console.error('更新互动数据失败:', error)
     }
   }
-
+  // 🌟 9. 提交用户反馈 (带错误拦截)
+  const submitFeedback = async (payload) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      const result = await response.json()
+      
+      // 如果后端判定一天内提交过了，或者有其他错误，抛出给前端弹窗
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '提交失败，请稍后重试')
+      }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
 
 
   const historyTags = ref([])
@@ -268,6 +286,7 @@ export const useGameStore = defineStore('game', () => {
     historyTags,
     fetchTags,
     saveTags,
-    recordInteraction
+    recordInteraction,
+    submitFeedback
   }
 })

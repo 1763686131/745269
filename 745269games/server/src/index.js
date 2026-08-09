@@ -278,6 +278,48 @@ export default {
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // ==========================================
+      // 9. 用户反馈引擎 (POST /api/feedback)
+      // ==========================================
+      if (url.pathname === "/api/feedback" && request.method === "POST") {
+        const body = await request.json();
+        
+        // 🚨 高级防刷机制：查询该 IP 在过去 24 小时内是否提交过反馈
+        const { results: recentFeedbacks } = await env.DB.prepare(`
+          SELECT id FROM feedbacks 
+          WHERE user_ip = ? AND created_at > datetime('now', '-1 day')
+        `).bind(clientIP).all();
+
+        if (recentFeedbacks && recentFeedbacks.length > 0) {
+          // 如果查到了数据，直接打回，抛出 429 错误
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: "为防止恶意提交，同一IP每天仅限反馈一次，请您明天再来哦！感谢支持。" 
+          }), { 
+            status: 429, 
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          });
+        }
+
+        // 验证通过，将数据存入数据库
+        const stmt = env.DB.prepare(`
+          INSERT INTO feedbacks (game_id, game_name, contact_info, content, user_ip)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(
+          body.game_id || '', 
+          body.game_name || '', 
+          body.contact_info || '', 
+          body.content || '', 
+          clientIP // 记录用户真实 IP
+        );
+        
+        await stmt.run();
+
+        return new Response(JSON.stringify({ success: true, message: "反馈提交成功！" }), { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        });
+      }
+
       
       // 🚨 兜底：如果你的请求没匹配到上面的任何路由，就会报 404
       return new Response(JSON.stringify({ error: "接口不存在或路径拼写错误" }), { 

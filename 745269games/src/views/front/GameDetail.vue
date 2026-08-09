@@ -119,11 +119,41 @@
             <p class="forum-desc">遇到解压问题、通关卡关或游戏补丁报错？可以在这里与大家交流：</p>
             <div class="forum-action-area">
               <button class="forum-btn" @click="alert('论坛社区功能开发中，敬请期待！')">💬 进入《{{ game.title?.zh_CN || '本游戏' }}》讨论区</button>
+              <button class="feedback-btn" @click="showFeedbackModal = true">⚠️ 链接失效 / 游戏报错反馈</button>
             </div>
           </div>
         </div>
       </div>
     </footer>
+
+    <transition name="modal-fade">
+      <div v-if="showFeedbackModal" class="modal-overlay" @click.self="showFeedbackModal = false">
+        <div class="feedback-modal-container">
+          <header class="modal-header">
+            <h3>📝 提交问题反馈</h3>
+            <button class="close-btn" @click="showFeedbackModal = false">✕</button>
+          </header>
+          <div class="modal-body">
+            <p class="feedback-hint">如果您遇到游戏报错、网盘失效或解压密码错误等问题，请在下方反馈，站长会火速处理！</p>
+            <div class="form-item">
+              <label>联系方式 <span class="optional">(选填，QQ / 微信 / 邮箱)</span></label>
+              <input type="text" v-model="feedbackForm.contact" placeholder="留下您的联系方式，方便给您回复">
+            </div>
+            <div class="form-item">
+              <label>反馈内容 <span class="required">*</span></label>
+              <textarea v-model="feedbackForm.content" rows="4" placeholder="请详细描述您遇到的问题..."></textarea>
+            </div>
+          </div>
+          <footer class="modal-footer">
+            <button class="btn-cancel" @click="showFeedbackModal = false">取消</button>
+            <button class="btn-submit" :disabled="isSubmittingFeedback" @click="submitFeedbackHandler">
+              {{ isSubmittingFeedback ? '正在发送...' : '提交给站长' }}
+            </button>
+          </footer>
+        </div>
+      </div>
+    </transition>
+
   </div>
 
   <div class="status-box" v-else-if="isLoading"><div class="spinner"></div><p>正在读取游戏数据...</p></div>
@@ -145,6 +175,44 @@ const isLiked = ref(false)
 
 const activeMediaIndex = ref(0)
 let bannerTimer = null
+
+// ==================== 🌟 用户反馈表单逻辑 ====================
+const showFeedbackModal = ref(false)
+const isSubmittingFeedback = ref(false)
+const feedbackForm = ref({
+  contact: '',
+  content: ''
+})
+
+const submitFeedbackHandler = async () => {
+  if (!feedbackForm.value.content.trim()) {
+    alert('反馈内容不能为空哦！请描述一下您遇到的问题。')
+    return
+  }
+
+  isSubmittingFeedback.value = true
+  
+  const payload = {
+    game_id: game.value.id,
+    game_name: game.value.title?.zh_CN || game.value.title?.en_US || '未知游戏',
+    contact_info: feedbackForm.value.contact.trim(),
+    content: feedbackForm.value.content.trim()
+  }
+
+  const res = await gameStore.submitFeedback(payload)
+  isSubmittingFeedback.value = false
+  
+  if (res.success) {
+    alert('✅ 反馈提交成功！站长已经收到通知，会尽快处理哒！')
+    showFeedbackModal.value = false
+    feedbackForm.value.contact = ''
+    feedbackForm.value.content = ''
+  } else {
+    // 这里会精准拦截出“一天只能提交一次”的后台警告
+    alert(`❌ ${res.error}`)
+  }
+}
+// =========================================================
 
 // 智能防抖引擎
 const interactState = {
@@ -294,7 +362,6 @@ const formatDate = (str) => {
 .left-info-column { display: flex; flex-direction: column; gap: 20px; }
 
 .poster-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-
 .poster-img { width: 100%; aspect-ratio: 0 / 4; object-fit: cover; border-radius: 12px; display: block; }
 .poster-placeholder { width: 100%; aspect-ratio: 3 / 4; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .poster-badge-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
@@ -307,7 +374,6 @@ const formatDate = (str) => {
 
 .desc-text { font-size: 14px; line-height: 1.7; color: var(--text-muted); white-space: pre-line; margin: 0 0 16px 0; }
 
-/* 🌟 多彩标签组 */
 .genre-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .genre-tag-pill { font-size: 12px; color: var(--color-primary); font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(37, 99, 235, 0.15); }
 .lang-tag-pill { font-size: 12px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.08); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(16, 185, 129, 0.2); }
@@ -374,16 +440,47 @@ const formatDate = (str) => {
 .forum-btn { width: 100%; background: var(--bg-hover); border: 2px dashed var(--border-dark); color: var(--text-heading); padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; }
 .forum-btn:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--bg-card); }
 
+/* 🌟 反馈按钮样式 */
+.feedback-btn { width: 100%; background: transparent; border: 2px dashed #f43f5e; color: #f43f5e; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; margin-top: 12px; }
+.feedback-btn:hover { background: rgba(244, 63, 94, 0.05); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(244, 63, 94, 0.15); }
+
+/* 🌟 反馈弹窗专属高级 CSS */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.feedback-modal-container { background: var(--bg-card); width: 90%; max-width: 500px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); overflow: hidden; border: 1px solid var(--border-light); transform: scale(1); transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
+.modal-fade-enter-from .feedback-modal-container, .modal-fade-leave-to .feedback-modal-container { transform: scale(0.95); }
+
+.feedback-modal-container .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border-light); }
+.feedback-modal-container .modal-header h3 { margin: 0; font-size: 18px; color: var(--text-heading); font-weight: 800; }
+.feedback-modal-container .close-btn { background: transparent; border: none; font-size: 20px; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+.feedback-modal-container .close-btn:hover { color: #f43f5e; transform: rotate(90deg); }
+
+.feedback-modal-container .modal-body { padding: 24px; }
+.feedback-hint { font-size: 13px; color: var(--text-muted); margin: 0 0 20px 0; line-height: 1.6; }
+.form-item { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
+.form-item label { font-size: 14px; font-weight: 700; color: var(--text-main); }
+.form-item .required { color: #f43f5e; }
+.form-item .optional { color: var(--text-light); font-size: 12px; font-weight: normal; }
+.form-item input, .form-item textarea { width: 100%; background: var(--bg-body); border: 1px solid var(--border-main); color: var(--text-main); padding: 12px 16px; border-radius: 12px; font-size: 14px; transition: 0.2s; outline: none; box-sizing: border-box; resize: vertical; }
+.form-item input:focus, .form-item textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+
+.feedback-modal-container .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border-light); background: var(--bg-hover); }
+.feedback-modal-container .btn-cancel { background: transparent; border: 1px solid var(--border-dark); color: var(--text-muted); padding: 10px 20px; border-radius: 100px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+.feedback-modal-container .btn-cancel:hover { background: var(--border-light); color: var(--text-main); }
+.feedback-modal-container .btn-submit { background: var(--color-primary); border: none; color: #fff; padding: 10px 24px; border-radius: 100px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+.feedback-modal-container .btn-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.2); }
+.feedback-modal-container .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .status-box { min-height: 50vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); }
 .back-home-btn { background: var(--color-primary); color: #fff; border: none; padding: 10px 24px; border-radius: 100px; font-weight: 800; cursor: pointer; margin-top: 16px; }
 .spinner { width: 2.5rem; height: 2.5rem; border: 3px solid var(--border-main); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem;}
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ==================== 📱 移动端自适应 (精细重构版) ==================== */
+/* ==================== 📱 移动端自适应 ==================== */
 @media (max-width: 768px) {
   .game-detail-container { padding: 16px 12px 60px 12px; }
   
-  /* 顶部 Header */
   .detail-top-header { flex-direction: column; gap: 12px; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; }
   .center-title-box { text-align: left; width: 100%; }
   .main-title-zh { font-size: 22px; }
@@ -391,25 +488,20 @@ const formatDate = (str) => {
   .header-placeholder { display: none; }
   .back-btn { font-size: 13px; padding: 6px 14px; }
 
-  /* 核心双栏切为单列 */
   .middle-main-layout { grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
   .poster-card { padding: 12px; }
-  .poster-img { max-height: 320px; object-fit: cover; } /* 限制海报在手机上的最大高度 */
+  .poster-img { max-height: 320px; object-fit: cover; } 
   
-  /* 描述与标签 */
   .desc-card, .banner-card, .resource-card { padding: 16px; border-radius: 12px; }
   .section-title, .card-head-title { font-size: 16px; margin-bottom: 12px; }
   
-  /* 缩略图轨迹微调 */
   .thumb-item { width: 80px; }
 
-  /* 底部互动栏 */
   .bottom-action-layout { gap: 16px; }
   .interaction-bar-card { flex-direction: column; gap: 12px; align-items: flex-start; padding: 16px; }
   .stats-left { flex-direction: column; gap: 6px; font-size: 13px; width: 100%; }
   .like-action-btn { width: 100%; justify-content: center; font-size: 14px; padding: 12px; }
 
-  /* 资源网盘卡片移动端适配 */
   .resources-grid-row { grid-template-columns: 1fr; gap: 16px; }
   .dl-group-item { padding: 12px; }
   .dl-plat-header { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -417,5 +509,11 @@ const formatDate = (str) => {
   .source-name { font-size: 14px; font-weight: 800; }
   .source-right { justify-content: flex-start; width: 100%; gap: 8px; }
   .action-btn, .download-link-btn { font-size: 12px; padding: 8px 12px; flex: 1; text-align: center; justify-content: center; }
+
+  /* 移动端弹窗适配 */
+  .feedback-modal-container { width: 95%; }
+  .feedback-modal-container .modal-header { padding: 16px; }
+  .feedback-modal-container .modal-body { padding: 16px; }
+  .feedback-modal-container .modal-footer { padding: 12px 16px; }
 }
 </style>
