@@ -85,7 +85,7 @@ export default {
           uuid: row.uuid,
           title: { zh_CN: row.title_zh, en_US: row.title_en },
           description: row.description,
-          media: { cover: row.cover_url, screenshots: JSON.parse(row.media_screenshots_json || '[]') },
+          media: { cover: row.cover_url, screenshots: JSON.parse(row.media_screenshots_json || '[]'), video: row.video_url || '' },
           aliases: JSON.parse(row.aliases_json || '[]'),
           metadata: JSON.parse(row.metadata_json || '{"platforms":[],"genres":[]}'),
           downloads: JSON.parse(row.downloads_json || '[]'),
@@ -115,7 +115,8 @@ export default {
           uuid: row.uuid,
           title: { zh_CN: row.title_zh, en_US: row.title_en },
           description: row.description,
-          media: { cover: row.cover_url, screenshots: JSON.parse(row.media_screenshots_json || '[]') },
+          // 👇 同样在这里加上 video
+          media: { cover: row.cover_url, screenshots: JSON.parse(row.media_screenshots_json || '[]'), video: row.video_url || '' },
           aliases: JSON.parse(row.aliases_json || '[]'),
           metadata: JSON.parse(row.metadata_json || '{"platforms":[],"genres":[]}'),
           downloads: JSON.parse(row.downloads_json || '[]'),
@@ -136,8 +137,8 @@ export default {
         const stmt = env.DB.prepare(`
           INSERT INTO games (
             uuid, title_zh, title_en, cover_url, description, 
-            aliases_json, metadata_json, downloads_json, media_screenshots_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            aliases_json, metadata_json, downloads_json, media_screenshots_json, video_url
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) -- 👈 注意这里变成了 10 个问号
         `).bind(
           uuid,
           body.title?.zh_CN || '',
@@ -147,7 +148,8 @@ export default {
           JSON.stringify(body.aliases || []),
           JSON.stringify(body.metadata || {}),
           JSON.stringify(body.downloads || []),
-          JSON.stringify(body.media?.screenshots || [])
+          JSON.stringify(body.media?.screenshots || []),
+          body.media?.video || '' // 👈 新增：把前端传来的视频地址绑进去！
         );
         await stmt.run();
         return new Response(JSON.stringify({ success: true, message: "游戏上传成功" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -164,6 +166,7 @@ export default {
           UPDATE games SET 
             title_zh = ?, title_en = ?, cover_url = ?, description = ?,
             aliases_json = ?, metadata_json = ?, downloads_json = ?, media_screenshots_json = ?,
+            video_url = ?, 
             updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `).bind(
@@ -175,6 +178,7 @@ export default {
           JSON.stringify(body.metadata || {}),
           JSON.stringify(body.downloads || []),
           JSON.stringify(body.media?.screenshots || []),
+          body.media?.video || '', // 👈 新增：绑定视频数据
           id
         );
         await stmt.run();

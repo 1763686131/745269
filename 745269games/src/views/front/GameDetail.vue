@@ -30,7 +30,7 @@
         </div>
 
         <div class="desc-card">
-          <h3 class="section-title">游戏简介</h3>
+          <h3 class="section-title">📖 游戏简介</h3>
           <p class="desc-text">{{ game.description || '暂无详细文字介绍...' }}</p>
           
           <div class="genre-tags-list" v-if="game.metadata?.genres && game.metadata.genres.length > 0">
@@ -42,26 +42,53 @@
       </section>
 
       <section class="right-banner-column">
-        <div class="banner-card" @mouseenter="stopBannerTimer" @mouseleave="startBannerTimer">
-          <h3 class="section-title">精彩实机画赏</h3>
+        <div class="banner-card" @mouseenter="stopBannerTimer" @mouseleave="handleMouseLeave">
+          <h3 class="section-title">
+            📸 精彩画赏与预告片 
+            <span class="playing-tag" v-if="currentMedia?.type === 'video'">🎬 视频播放中 (暂停自动轮播)</span>
+          </h3>
           
-          <div class="main-banner-viewer" v-if="game.media?.screenshots && game.media.screenshots.length > 0">
-            <img :src="game.media.screenshots[activeImageIndex]" alt="游戏截图" class="active-banner-img fade-transition" :key="activeImageIndex" />
-            <div class="image-counter">{{ activeImageIndex + 1 }} / {{ game.media.screenshots.length }}</div>
-          </div>
-          <div class="banner-placeholder" v-else>
-            🖼️ 暂无游戏截图
+          <div class="main-banner-viewer" v-if="mediaList.length > 0">
+            
+            <iframe 
+              v-if="currentMedia?.type === 'video'" 
+              :src="currentMedia.src" 
+              class="bilibili-iframe"
+              scrolling="no" 
+              border="0" 
+              frameborder="no" 
+              framespacing="0" 
+              allowfullscreen="true"
+            ></iframe>
+
+            <img 
+              v-else-if="currentMedia?.type === 'image'" 
+              :src="currentMedia.src" 
+              alt="游戏截图" 
+              class="active-banner-img fade-transition" 
+              :key="activeMediaIndex" 
+            />
+
+            <div class="image-counter">{{ activeMediaIndex + 1 }} / {{ mediaList.length }}</div>
           </div>
 
-          <div class="thumbnails-track" v-if="game.media?.screenshots && game.media.screenshots.length > 1">
+          <div class="banner-placeholder" v-else>
+            🖼️ 暂无游戏视频或截图
+          </div>
+
+          <div class="thumbnails-track" v-if="mediaList.length > 1">
             <div 
-              v-for="(img, idx) in game.media.screenshots" 
+              v-for="(item, idx) in mediaList" 
               :key="idx"
               class="thumb-item"
-              :class="{ active: activeImageIndex === idx }"
+              :class="{ active: activeMediaIndex === idx, 'is-video-thumb': item.type === 'video' }"
               @click="handleManualChange(idx)"
             >
-              <img :src="img" alt="缩略图" />
+              <div v-if="item.type === 'video'" class="video-thumb-overlay">
+                <span class="play-icon">▶️</span>
+                <span class="video-label">预告片</span>
+              </div>
+              <img v-else :src="item.src" alt="缩略图" />
             </div>
           </div>
         </div>
@@ -79,7 +106,7 @@
 
         <button class="like-action-btn" :class="{ liked: isLiked }" @click="toggleLike">
           <span class="like-icon">👍</span> 
-          <span>{{ isLiked ? '已赞爆该游戏' : '给游戏赞爆' }}</span>
+          <span>{{ isLiked ? '已赞爆该游戏' : '给作者赞爆' }}</span>
           <span class="like-count">({{ (game.likes || 0) + (isLiked ? 1 : 0) }})</span>
         </button>
       </div>
@@ -141,7 +168,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '@/store/gameStore' 
 
@@ -152,13 +179,61 @@ const gameStore = useGameStore()
 const game = ref(null)
 const isLoading = ref(true)
 const isLiked = ref(false)
-const activeImageIndex = ref(0)
 
-// 🌟 自动轮播相关逻辑
+// 当前正在选中的媒体索引
+const activeMediaIndex = ref(0)
 let bannerTimer = null
 
+// 💡 1. 核心智能解析器：把数据库里的 视频 + 图片 统一转化为混合媒体数组
+const mediaList = computed(() => {
+  const list = []
+  if (!game.value?.media) return list
 
-// 1. 停止定时器的方法保持不变
+  // (1) 如果填写了视频字段 (无论是纯 URL 还是长串 <iframe src="...">)
+  if (game.value.media.video) {
+    let videoUrl = game.value.media.video
+
+    // 如果上传的是长串 <iframe src="...">，利用正则自动把 src 提取出来
+    const match = videoUrl.match(/src=["']([^"']+)["']/)
+    if (match && match[1]) {
+      videoUrl = match[1]
+    }
+
+    // 确保 URL 协议完整
+    if (videoUrl.startsWith('//')) {
+      videoUrl = 'https:' + videoUrl
+    }
+
+    // 自动追加 B站 自动播放 & 默认静音 参数，防浏览器拦截
+    if (!videoUrl.includes('autoplay=')) {
+      videoUrl += (videoUrl.includes('?') ? '&' : '?') + 'autoplay=1&muted=1'
+    }
+
+    list.push({
+      type: 'video',
+      src: videoUrl
+    })
+  }
+
+  // (2) 追加实机截图图片
+  if (Array.isArray(game.value.media.screenshots)) {
+    game.value.media.screenshots.forEach(imgUrl => {
+      list.push({
+        type: 'image',
+        src: imgUrl
+      })
+    })
+  }
+
+  return list
+})
+
+// 当前展示的媒体项
+const currentMedia = computed(() => {
+  return mediaList.value[activeMediaIndex.value] || null
+})
+
+// 💡 2. 智能轮播控制引擎
 const stopBannerTimer = () => {
   if (bannerTimer) {
     clearInterval(bannerTimer)
@@ -166,26 +241,40 @@ const stopBannerTimer = () => {
   }
 }
 
-// 2. 🚨 核心修复：启动定时器
 const startBannerTimer = () => {
-  // 👉 关键点：每次启动前，必定先手起刀落把旧的干掉！绝不让两个定时器同时存在。
-  stopBannerTimer() 
+  // 单例锁：必定先清空旧定时器，防止定时器重叠打架
+  stopBannerTimer()
 
-  // 如果没有图片或者只有1张图片，不开启轮播
-  if (!game.value?.media?.screenshots || game.value.media.screenshots.length <= 1) return
-  
-  // 重新开启干干净净的 5 秒倒计时
+  // 关键：如果当前选中的是【视频】，或者总媒体数小于等于1，绝不开启5秒自动轮播！
+  if (currentMedia.value?.type === 'video' || mediaList.value.length <= 1) {
+    return
+  }
+
+  // 正常开启 5 秒图片轮播
   bannerTimer = setInterval(() => {
-    activeImageIndex.value = (activeImageIndex.value + 1) % game.value.media.screenshots.length
+    // 下一项
+    const nextIndex = (activeMediaIndex.value + 1) % mediaList.value.length
+    activeMediaIndex.value = nextIndex
+
+    // 如果切到了视频，立刻自动停止定时器
+    if (mediaList.value[nextIndex]?.type === 'video') {
+      stopBannerTimer()
+    }
   }, 5000)
 }
 
+// 鼠标移出容器时的逻辑
+const handleMouseLeave = () => {
+  // 只有当前不是视频时，移开鼠标才恢复 5 秒轮播
+  if (currentMedia.value?.type !== 'video') {
+    startBannerTimer()
+  }
+}
 
-
-// 玩家手动点击缩略图时，切换图片并“重置” 5秒倒计时
+// 玩家手动点击缩略图
 const handleManualChange = (idx) => {
-  activeImageIndex.value = idx
-  // 手动点击后直接重启，因为 startBannerTimer 内部现在已经自带了 stop 功能
+  activeMediaIndex.value = idx
+  // 重置并按新类型判断是否轮播
   startBannerTimer()
 }
 
@@ -197,7 +286,7 @@ onMounted(async () => {
   if (localGame) {
     game.value = localGame
     isLoading.value = false
-    startBannerTimer() // 👈 获取数据成功后开启轮播
+    startBannerTimer()
     return
   }
 
@@ -206,7 +295,7 @@ onMounted(async () => {
     const fetchedGame = await gameStore.fetchGameById(targetId)
     if (fetchedGame) {
       game.value = fetchedGame
-      startBannerTimer() // 👈 获取数据成功后开启轮播
+      startBannerTimer()
     }
   } catch (error) {
     console.error('拉取详情数据失败:', error)
@@ -215,14 +304,11 @@ onMounted(async () => {
   }
 })
 
-// 组件销毁前（比如退回到首页时），务必清空定时器，防止内存泄漏
 onUnmounted(() => {
   stopBannerTimer()
 })
 
-const goBack = () => {
-  router.back()
-}
+const goBack = () => { router.back() }
 
 const copyCode = async (code) => {
   try {
@@ -233,9 +319,7 @@ const copyCode = async (code) => {
   }
 }
 
-const toggleLike = () => {
-  isLiked.value = !isLiked.value
-}
+const toggleLike = () => { isLiked.value = !isLiked.value }
 
 const formatDate = (str) => {
   if (!str) return '未知时间'
@@ -259,45 +343,50 @@ const formatDate = (str) => {
 .left-info-column { display: flex; flex-direction: column; gap: 20px; }
 
 .poster-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-.poster-img { width: 100%; aspect-ratio: 0 / 4; object-fit: cover; border-radius: 12px; display: block; }
+.poster-img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; display: block; }
 .poster-placeholder { width: 100%; aspect-ratio: 3 / 4; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .poster-badge-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-.mini-badge { background-color: rgba(37, 99, 235, 0.1); background-color: rgba(37, 99, 235, 0.1); font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main); }
+.mini-badge { background: var(--bg-hover); color: var(--text-muted); font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main); }
 .mini-badge.rating { color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
 
 .desc-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; flex: 1; }
-.section-title { font-size: 18px; font-weight: 800; color: var(--text-heading); margin: 0 0 14px 0; border-bottom: 1px solid var(--border-main); padding-bottom: 8px; }
+.section-title { font-size: 18px; font-weight: 800; color: var(--text-heading); margin: 0 0 14px 0; border-bottom: 1px solid var(--border-main); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.playing-tag { font-size: 12px; color: #ec4899; background: rgba(236, 72, 153, 0.1); padding: 2px 10px; border-radius: 100px; }
+
 .desc-text { font-size: 14px; line-height: 1.7; color: var(--text-muted); white-space: pre-line; margin: 0 0 16px 0; }
 .genre-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .genre-tag-pill { font-size: 12px; color: var(--color-primary); font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 4px 10px; border-radius: 100px; }
 
-/* 右侧栏：大图轮播 */
+/* 右侧栏：大图/视频 播放区 */
 .right-banner-column { height: 100%; }
 .banner-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; height: 100%; display: flex; flex-direction: column; }
 .main-banner-viewer { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--border-main); }
 
-/* 🌟 图片切换淡入淡出动画 */
-.fade-transition {
-  animation: fadeIn 0.4s ease-in-out;
-}
-@keyframes fadeIn {
-  from { opacity: 0.6; transform: scale(1.02); }
-  to { opacity: 1; transform: scale(1); }
-}
+/* Bilibili iframe 视窗填充 */
+.bilibili-iframe { width: 100%; height: 100%; border: none; display: block; }
+
+.fade-transition { animation: fadeIn 0.4s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0.6; transform: scale(1.02); } to { opacity: 1; transform: scale(1); } }
 
 .active-banner-img { width: 100%; height: 100%; object-fit: contain; }
-.image-counter { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; backdrop-filter: blur(4px); }
+.image-counter { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; backdrop-filter: blur(4px); pointer-events: none; }
 .banner-placeholder { width: 100%; aspect-ratio: 16 / 9; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 
-/* 缩略图滚动轨 */
+/* 缩略图轨迹 */
 .thumbnails-track { display: flex; gap: 12px; margin-top: 16px; overflow-x: auto; padding-bottom: 6px; }
-/* 隐藏滚动条让它更美观 */
 .thumbnails-track::-webkit-scrollbar { height: 6px; }
 .thumbnails-track::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 4px; }
-.thumb-item { width: 100px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; cursor: pointer; border: 2px solid transparent; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0; }
+.thumb-item { width: 100px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; cursor: pointer; border: 5px solid transparent; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0; position: relative; }
 .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
 .thumb-item:hover { opacity: 0.9; }
 .thumb-item.active { border-color: var(--color-primary); opacity: 1; transform: scale(1.05); }
+
+/* 🎬 视频缩略图专属标志 */
+.thumb-item.is-video-thumb { background: #0f172a; border-color: rgba(236, 72, 153, 0.4); opacity: 0.85; }
+.thumb-item.is-video-thumb.active { border-color: #ec4899; opacity: 1; }
+.video-thumb-overlay { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, rgba(236,72,153,0.3) 0%, rgba(37,99,235,0.3) 100%); }
+.play-icon { font-size: 18px; margin-bottom: 2px; }
+.video-label { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; }
 
 /* 底部操作区 */
 .bottom-action-layout { display: flex; flex-direction: column; gap: 20px; }

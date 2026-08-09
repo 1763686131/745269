@@ -75,3 +75,9 @@ npx wrangler dev
 ```bash
 npx wrangler d1 execute games --local --file=./schema.sql
 ```
+
+### 数据库增加变量
+
+```bash
+npx wrangler d1 execute games --local --command="ALTER TABLE games ADD COLUMN video_url TEXT;"
+```

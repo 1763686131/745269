@@ -1,5 +1,3 @@
--- server/schema.sql
-
 -- ⚠️ 警告：如果你想彻底清空所有本地数据重新开始，可以取消下面两行的注释
 -- DROP TABLE IF EXISTS games;
 -- DROP TABLE IF EXISTS game_tags;
@@ -19,12 +17,15 @@ CREATE TABLE IF NOT EXISTS games (
   downloads_json TEXT,
   media_screenshots_json TEXT,
   
+  -- 🎬 视频预告片 (外链/iframe地址)
+  video_url TEXT,
+  
   is_active BOOLEAN DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. 🌟 新增：游戏分类/标签历史记录表
+-- 2. 🌟 游戏分类/标签历史记录表
 CREATE TABLE IF NOT EXISTS game_tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT UNIQUE NOT NULL

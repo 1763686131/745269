@@ -84,6 +84,19 @@
             </div>
 
             <div class="form-item mt-24">
+              <label>🎬 视频预告片 (支持白嫖B站)</label>
+              <input 
+                type="text" 
+                v-model="formData.media.video" 
+                placeholder="请粘贴 B站 的 iframe 分享代码，或直接填写带 src 的链接" 
+                class="form-input"
+              />
+              <p class="form-hint" style="font-size: 12px; color: #94A3B8; margin-top: 4px;">
+                💡 去B站视频下方点击“分享” -> “嵌入代码” -> 复制粘贴到这里即可，不消耗本站服务器流量！
+              </p>
+            </div>
+
+            <div class="form-item mt-24">
               <label>游戏详情截图 (URL外链)</label>
               <div class="upload-action-row">
                 <input type="text" v-model="tempScreenshotUrl" @keyup.enter="addScreenshotUrl" placeholder="输入截图URL并按回车 或 点击右侧添加" class="flex-1">
@@ -213,28 +226,44 @@ const showModal = computed(() => {
 })
 
 const isEdit = computed(() => !!props.gameData)
-const formData = ref({})
 
-// ================== 🌟 优化1：语言支持（多选数组） ==================
+// 🌟 1. 默认数据构造器：防止模态框挂载时读属性报错
+const getDefaultData = () => ({
+  id: null,
+  uuid: 'uuid_' + Date.now().toString(36) + Math.random().toString(36).substring(2),
+  title: { zh_CN: '', en_US: '' },
+  description: '',
+  aliases: [], // 语言支持数组
+  media: { 
+    cover: '', 
+    screenshots: [],
+    video: '' // 👈 必须初始化 video 字段
+  },
+  metadata: { platforms: [], genres: [] }, // genres 分类数组
+  downloads: [],
+  system: { is_active: true }
+})
+
+// 初始化为完整结构的 formData
+const formData = ref(getDefaultData())
+
+// 🌟 2. 语言支持配置
 const availableLanguages = ['简体中文', '繁体中文', '英语', '日语']
 const selectedLanguages = ref([])
 
-// ================== 🌟 优化2：分类与历史记录 ==================
+// 🌟 3. 分类与历史记录
 const tempGenres = ref('')
 const historyGenres = ref([])
 
-// 页面加载时读取服务器历史分类记录
 onMounted(async () => {
   await gameStore.fetchTags()
   historyGenres.value = gameStore.historyTags
 })
 
-// 点击历史标签，自动填入输入框
 const appendGenre = (tag) => {
   if (!tempGenres.value) {
     tempGenres.value = tag
   } else {
-    // 检查是否已经填过了，没填过才加上逗号
     const currentTags = tempGenres.value.split(/,|，/).map(s => s.trim())
     if (!currentTags.includes(tag)) {
       tempGenres.value += `, ${tag}`
@@ -242,49 +271,44 @@ const appendGenre = (tag) => {
   }
 }
 
-// 清空历史记录
 const clearHistoryGenres = () => {
   historyGenres.value = []
   localStorage.removeItem('game_genres_history')
 }
 
-// 临时截图外链输入框
 const tempScreenshotUrl = ref('')
 
-// 平台互斥配置
+// 🌟 4. 平台互斥配置
 const platformOptions = ['Switch', 'PS5', 'PS4', 'PC']
 const isPlatformDisabled = (plat, currentIndex) => {
   return formData.value.downloads?.some((dl, index) => index !== currentIndex && dl.platform === plat)
 }
 
-const getDefaultData = () => ({
-  id: null,
-  uuid: 'uuid_' + Date.now().toString(36) + Math.random().toString(36).substring(2),
-  title: { zh_CN: '', en_US: '' },
-  description: '',
-  aliases: [], // 这是语言数组
-  media: { cover: '', screenshots: [] },
-  metadata: { platforms: [], genres: [] }, // genres 是分类数组
-  downloads: [],
-  system: { is_active: true }
-})
-
-// 监听弹窗打开状态
+// 🌟 5. 核心：监听模态框打开与数据回填（修改 vs 上传）
 watch(showModal, (newVal) => {
   if (newVal) {
     if (props.gameData) {
-      formData.value = JSON.parse(JSON.stringify(props.gameData))
-      if (!formData.value.description) formData.value.description = ''
-      if (!formData.value.aliases) formData.value.aliases = [] 
-      if (!formData.value.media) formData.value.media = { cover: '', screenshots: [] }
-      if (!formData.value.media.screenshots) formData.value.media.screenshots = []
+      // 深拷贝防污染
+      const data = JSON.parse(JSON.stringify(props.gameData))
       
-      // 数据回显：直接把后端的数组赋值给复选框绑定的变量
-      selectedLanguages.value = [...formData.value.aliases]
-      // 分类回显：把数组转成逗号字符串填回输入框
-      tempGenres.value = formData.value.metadata?.genres?.join(', ') || ''
+      // 完善各层级的防空校验，确保回显不出死角
+      if (!data.title) data.title = { zh_CN: '', en_US: '' }
+      if (!data.description) data.description = ''
+      if (!data.aliases) data.aliases = [] 
+      if (!data.media) data.media = { cover: '', screenshots: [], video: '' }
+      if (!data.media.screenshots) data.media.screenshots = []
+      if (data.media.video === undefined) data.media.video = '' // 防空补充
+      if (!data.metadata) data.metadata = { platforms: [], genres: [] }
+      if (!data.downloads) data.downloads = []
+
+      formData.value = data
+
+      // 回显复选框和输入框
+      selectedLanguages.value = [...data.aliases]
+      tempGenres.value = data.metadata?.genres?.join(', ') || ''
       tempScreenshotUrl.value = ''
     } else {
+      // 上传模式，重置为空表单
       formData.value = getDefaultData()
       selectedLanguages.value = []
       tempGenres.value = ''
@@ -294,12 +318,14 @@ watch(showModal, (newVal) => {
 })
 
 const handleImgError = (e) => {
-  // 图片加载失败处理
+  // 可加上占位图逻辑
 }
 
 const addScreenshotUrl = () => {
   const url = tempScreenshotUrl.value.trim()
   if (url) {
+    if (!formData.value.media) formData.value.media = { cover: '', screenshots: [], video: '' }
+    if (!formData.value.media.screenshots) formData.value.media.screenshots = []
     formData.value.media.screenshots.push(url)
     tempScreenshotUrl.value = '' 
   }
@@ -310,6 +336,7 @@ const removeScreenshot = (index) => {
 }
 
 const addDownload = () => {
+  if (!formData.value.downloads) formData.value.downloads = []
   formData.value.downloads.push({
     platform: '', edition: '', version: '', file_format: '', file_size_display: '', system_requirements: {}, sources: []
   })
@@ -317,6 +344,7 @@ const addDownload = () => {
 const removeDownload = (index) => formData.value.downloads.splice(index, 1)
 
 const addSource = (dlIndex) => {
+  if (!formData.value.downloads[dlIndex].sources) formData.value.downloads[dlIndex].sources = []
   formData.value.downloads[dlIndex].sources.push({
     provider: 'baidu', name: '', url: '', password: '', is_valid: true
   })
@@ -329,14 +357,14 @@ const handleClose = () => {
   emit('input', false)
 }
 
-const handleSubmit = async () => { // ⚠️ 注意这里加了 async
+const handleSubmit = async () => {
   formData.value.aliases = [...selectedLanguages.value]
   
   const finalGenresArray = tempGenres.value.split(/,|，/).map(s => s.trim()).filter(Boolean)
+  if (!formData.value.metadata) formData.value.metadata = {}
   formData.value.metadata.genres = finalGenresArray
-  formData.value.metadata.platforms = formData.value.downloads.map(dl => dl.platform).filter(Boolean)
+  formData.value.metadata.platforms = (formData.value.downloads || []).map(dl => dl.platform).filter(Boolean)
 
-  // 🌟 核心修改：不再存 localStorage，直接发送给服务器保存！
   if (finalGenresArray.length > 0) {
     await gameStore.saveTags(finalGenresArray)
   }
@@ -345,6 +373,7 @@ const handleSubmit = async () => { // ⚠️ 注意这里加了 async
   handleClose()
 }
 </script>
+
 
 <style scoped>
 .modal-overlay {
