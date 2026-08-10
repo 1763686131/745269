@@ -1,12 +1,30 @@
 import express from 'express';
-import cors from 'cors';
 import Database from 'better-sqlite3';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
 const app = express();
-const PORT = 3000;
+const PORT = 5269;
+
+// ======= 【核心修复 1：纯手工跨域，彻底抛弃 cors 插件】 =======
+app.use((req, res, next) => {
+  // 允许所有前端域名访问
+  res.setHeader('Access-Control-Allow-Origin', '*'); 
+  // 允许的请求方式
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+  // 允许带的请求头 (极其重要：X-Requested-With 也是常用头)
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  
+  // 关键：如果是浏览器发来的 OPTIONS 预检请求，直接返回 204 无内容放行，绝不能往下走！
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
+// 解析 JSON 请求体 (必须放在跨域放行的下面)
+app.use(express.json()); 
 
 // 1. 初始化数据库 (持久化在 data 文件夹)
 const dbPath = './data/database.sqlite';
@@ -24,29 +42,29 @@ try {
   console.error('⚠️ 执行 schema.sql 失败，请检查文件路径:', err);
 }
 
-// 2. 全局中间件设置
-// 开启跨域
-app.use(cors({ origin: '*' })); 
-// 解析 JSON 请求体
-app.use(express.json()); 
-
 // 🛡️ 终极安全防御响应头
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   next();
 });
 
-// 🛡️ 全局防刷/节流引擎 (Express版)
+// 🛡️ 全局防刷/节流引擎
 const rateLimitMap = new Map();
+
+// ======= 【核心修复 2：防止内存泄漏的定时清理机制】 =======
+setInterval(() => {
+  const now = Date.now();
+  for (let [key, unlockTime] of rateLimitMap.entries()) {
+    if (now > unlockTime) rateLimitMap.delete(key);
+  }
+}, 10 * 60 * 1000); // 每 10 分钟打扫一次战场
+
 app.use((req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-    // 互动接口放行
     if (req.path.includes('/interact')) return next();
     
-    // 获取真实IP (兼容 CF Tunnel / Nginx 反代 / 直连)
     const clientIP = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip || "unknown_ip";
     const now = Date.now();
     const apiType = req.path.split('/')[2] || "general";
@@ -68,7 +86,7 @@ app.use((req, res, next) => {
 });
 
 // ==========================================
-// 🚀 业务路由开始 (better-sqlite3 是同步的，所以去掉了 await)
+// 🚀 业务路由开始
 // ==========================================
 
 // 1. 获取分页游戏/分类栏目列表
@@ -120,9 +138,20 @@ app.get('/api/games/search', (req, res) => {
     const keyword = req.query.q || "";
     const searchTerm = `%${keyword}%`;
     const results = db.prepare(`SELECT * FROM games WHERE title_zh LIKE ? OR title_en LIKE ? ORDER BY id DESC`).all(searchTerm, searchTerm);
-    // 映射逻辑同上（略写，直接调用映射）
+    
+    // 必须和列表接口保持字段一致，否则搜索结果在前端会白屏！
     const games = results.map(row => ({
-       id: row.id, title: { zh_CN: row.title_zh }, media: { cover: row.cover_url }, /* ...其他字段补齐 */
+      id: row.id,
+      uuid: row.uuid,
+      title: { zh_CN: row.title_zh, en_US: row.title_en },
+      description: row.description,
+      media: { cover: row.cover_url, screenshots: JSON.parse(row.media_screenshots_json || '[]'), video: row.video_url || '' },
+      aliases: JSON.parse(row.aliases_json || '[]'),
+      metadata: JSON.parse(row.metadata_json || '{"platforms":[],"genres":[]}'),
+      downloads: JSON.parse(row.downloads_json || '[]'),
+      download_count: row.download_count || 0, 
+      likes: row.likes || 0,
+      system: { is_active: row.is_active, created_at: row.created_at, updated_at: row.updated_at }
     }));
     res.json(games);
   } catch (error) {
@@ -148,18 +177,31 @@ app.post('/api/games', (req, res) => {
   }
 });
 
-// 6. 获取单个游戏详情
+// ======= 【核心修复 3：游戏详情接口数据映射结构修正】 =======
 app.get('/api/games/:id', (req, res) => {
   try {
-    const gameData = db.prepare("SELECT * FROM games WHERE id = ?").get(req.params.id);
-    if (!gameData) return res.status(404).json({ error: "未能找到该游戏" });
+    const row = db.prepare("SELECT * FROM games WHERE id = ?").get(req.params.id);
+    if (!row) return res.status(404).json({ error: "未能找到该游戏" });
 
-    const jsonFields = ['title', 'media', 'metadata', 'downloads', 'aliases', 'system'];
-    jsonFields.forEach(field => {
-      if (typeof gameData[field] === 'string') {
-        try { gameData[field] = JSON.parse(gameData[field]); } catch(e) {}
-      }
-    });
+    // 绝对不能用循环去 parse JSON，必须手动建立映射字典！
+    const gameData = {
+      id: row.id,
+      uuid: row.uuid,
+      title: { zh_CN: row.title_zh, en_US: row.title_en },
+      description: row.description,
+      media: { 
+        cover: row.cover_url, 
+        screenshots: JSON.parse(row.media_screenshots_json || '[]'), 
+        video: row.video_url || '' 
+      },
+      aliases: JSON.parse(row.aliases_json || '[]'),
+      metadata: JSON.parse(row.metadata_json || '{"platforms":[],"genres":[]}'),
+      downloads: JSON.parse(row.downloads_json || '[]'),
+      download_count: row.download_count || 0, 
+      likes: row.likes || 0,
+      system: { is_active: row.is_active, created_at: row.created_at, updated_at: row.updated_at }
+    };
+    
     res.json(gameData);
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -180,13 +222,9 @@ app.post('/api/games/:id/interact', (req, res) => {
   }
 });
 
-// 18. 后台管理员高安全登录
+// 18. 后台管理员登录
 app.post('/api/login', (req, res) => {
   try {
-    const ip = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
-    let attemptRecord = db.prepare("SELECT attempts, last_attempt FROM login_attempts WHERE ip = ?").get(ip);
-    
-    // 省略部分防爆破逻辑，转换为 SQLite Sync 写法
     const user = db.prepare("SELECT * FROM users WHERE username = ? AND role = 'admin'").get(req.body.username);
     if (!user || user.password !== req.body.password) {
       return res.json({ success: false, error: `账号或密码错误！`});
