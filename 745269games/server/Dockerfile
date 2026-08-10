@@ -1,9 +1,17 @@
-FROM node:18-alpine
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:18-alpine
+
 WORKDIR /app
+
 COPY package*.json ./
-# 安装 better-sqlite3 需要编译环境
-RUN apk add --no-cache python3 make g++ 
+
+RUN apk add --no-cache python3 make g++
+
+RUN npm config set registry https://registry.npmmirror.com
+
 RUN npm install
+
 COPY . .
+
 EXPOSE 3000
+
 CMD ["npm", "start"]

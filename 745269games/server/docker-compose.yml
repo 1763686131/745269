@@ -5,7 +5,7 @@ services:
     container_name: games-backend
     restart: always
     ports:
-      - "3000:3000"
+      - "5269:3000"
     volumes:
       # 将容器内的 data 文件夹映射到宿主机的 data 文件夹
       # 这样哪怕容器删了重建，你的数据库 .sqlite 文件依然在！
