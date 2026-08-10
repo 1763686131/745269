@@ -1,16 +1,15 @@
 {
-  "name": "server",
+  "name": "games-server",
   "version": "1.0.0",
-  "description": "",
+  "description": "745269.com 本地后端",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "devDependencies": {
-    "wrangler": "^4.119.0"
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
   }
 }
