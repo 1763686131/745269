@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-const API_BASE_URL = 'http://localhost:5269'
+const API_BASE_URL = 'http://192.168.31.236:5269'
 
 export const useGameStore = defineStore('game', () => {
   const isLoading = ref(false)
