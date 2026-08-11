@@ -52,13 +52,13 @@ src/
 ```Plaintext
 
 server-Cloudflare/
-├── src/                #Vue 前端代码
-├── vite.config.js      #前端配置
-└── server/             #纯净版服务端
-    ├── package.json
-    ├── wrangler.toml
-    └── src/
-        └── index.js
+├── .wrangler  #本地数据库文件夹（已隐藏）
+├── src/
+│     └── index.js    #服务端的代码
+├── package-lock.json #服务端插件版本
+├── package.json      #服务端配置
+├── schema.sql        #数据库自动部署脚本
+└── wrangler.toml      #Cloudflare  指引文件
 ```
 
 
