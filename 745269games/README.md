@@ -3,7 +3,7 @@
 ## VUE3 
 
 运行代码: npm run dev
-打包代码：
+打包代码：npm run build
 
 
 ### 前端目录结构
@@ -20,21 +20,24 @@ src/
 │   ├── common/         # 如：BaseButton.vue, SearchBar.vue
 │   ├── front/          # 前台专用小组件：NavBar.vue, GameCard.vue
 │   └── admin/          # 后台专用小组件：AdminSidebar.vue
-│         └──GameFormModal.vue   # 修改&上传编辑游戏组件
+│         ├──GameFormModal.vue   # 修改&上传编辑游戏组件
+│         ├──AccessStats.vue     # 后台访客组件
+│         ├──FeedbackList.vue    # 后台反馈组件
+│         └──UserList.vue        # 后台用户数据组件
 ├── layouts/            # 布局包裹层 (重要！)
 │   ├── FrontLayout.vue # 前台布局 (包含前台Header和Footer)
 │   └── AdminLayout.vue # 后台布局 (包含左侧菜单和顶部面包屑)
 ├── views/              # 页面级视图 (配合 Vue Router 使用)
 │   ├── front/
 │   │   ├── gamesHome.vue    # 前台首页 (原 GameHome.vue 的主体)
-│   │   ├── Column.vue  # 游戏分类栏目
-│   │   └── Detail.vue  # 游戏详情 (原 CategoryDetail.vue)
+│   │   ├── Column.vue       # 游戏分类栏目
+│   │   └── GameDetail.vue       # 游戏详情 (原 CategoryDetail.vue)
 │   └── admin/
 │       ├── Dashboard.vue
-│       └── GameList.vue# 游戏管理列表 (原 GameAdminUpload.vue 的主体)
-├── store/              # Pinia 状态管理
-│   ├── index.js        # Pinia 实例化
-│   └── gameStore.js    # 游戏数据仓库
+│       └── GameList.vue     # 游戏管理列表 (原 GameAdminUpload.vue 的主体)
+├── store/                   # Pinia 状态管理
+│   ├── index.js             # Pinia 实例化
+│   └── gameStore.js         # 游戏数据仓库
 ├── router/             
 │   └── index.js        # 路由配置 
 ├── services/           
@@ -47,7 +50,8 @@ src/
 ### 后端目录结构
 
 ```Plaintext
-你的项目根目录/
+
+server-Cloudflare/
 ├── src/                #Vue 前端代码
 ├── vite.config.js      #前端配置
 └── server/             #纯净版服务端
@@ -61,7 +65,7 @@ src/
 ### 后端运行代码：
 
 
-确保你在 server 目录下
+确保你在 server-Cloudflare 目录下
 
 ```bash
 
