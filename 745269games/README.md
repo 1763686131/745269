@@ -80,13 +80,6 @@ npx wrangler dev
 npx wrangler d1 execute games --local --file=./schema.sql
 ```
 
-npx wrangler d1 execute games --local --command="CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, email TEXT UNIQUE, avatar_url TEXT, role TEXT DEFAULT 'user', status TEXT DEFAULT 'active', reputation INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, last_login_at DATETIME); CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);"
-
-
-npx wrangler d1 execute games --local --command="CREATE TABLE IF NOT EXISTS site_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_ip TEXT NOT NULL, path TEXT NOT NULL, user_agent TEXT, referer TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE INDEX IF NOT EXISTS idx_site_logs_created_at ON site_logs(created_at DESC); CREATE INDEX IF NOT EXISTS idx_site_logs_ip ON site_logs(user_ip);"
-
-
-npx wrangler d1 execute games --local --command="CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT PRIMARY KEY, attempts INTEGER DEFAULT 0, last_attempt DATETIME DEFAULT CURRENT_TIMESTAMP);"
 
 ### 数据库增加变量
 
@@ -94,4 +87,29 @@ npx wrangler d1 execute games --local --command="CREATE TABLE IF NOT EXISTS logi
 npx wrangler d1 execute games --local --command="ALTER TABLE games ADD COLUMN video_url TEXT;"
 ```
 
-npx wrangler d1 execute games --local --command="ALTER TABLE games ADD COLUMN download_count INTEGER DEFAULT 0;"
+
+### docker 运行
+
+目录结构：
+
+```Plaintext
+
+server-docker/
+├── data/               # 空文件夹，用于 Docker 挂载保存 SQLite 数据库
+├── dist/               # 👈 将你刚刚前端打包生成的 dist 文件夹整个复制进来
+├── src/
+│   └── index.js        # 核心服务代码（融合后端接口与前端托管）
+├── schema.sql          # 👈 将你原来的 Cloudflare 里的 schema.sql 复制过来
+├── package.json        # 依赖配置
+├── Dockerfile          # Docker 镜像构建图纸
+└── docker-compose.yml  # Docker 容器编排文件
+
+```
+
+确保你在 server-docker 目录下
+
+```bash
+
+docker-compose up -d --build
+
+```

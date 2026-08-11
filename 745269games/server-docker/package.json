@@ -1,0 +1,14 @@
+{
+  "name": "745269-docker-app",
+  "version": "1.0.0",
+  "description": "Vue3 + Express + SQLite 全栈一体化",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "express": "^4.18.2"
+  }
+}

@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-const API_BASE_URL = 'http://127.0.0.1:8787'
+// 跨域请求的后端 API 地址，前端所有请求都通过这个地址转发到后端服务
+const API_BASE_URL = ''
 
 export const useGameStore = defineStore('game', () => {
   const isLoading = ref(false)
