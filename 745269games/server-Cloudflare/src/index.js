@@ -240,11 +240,50 @@ export default {
           headers: { ...corsHeaders, "Content-Type": "application/json" } 
         });
       }
-// ==========================================
-      // 7. 获取与保存历史分类标签 (GET / POST /api/tags)
       // ==========================================
+      // 7. 获取与保存历史分类标签 (GET / POST /api/tags)
       if (pathParts[0] === "api" && pathParts[1] === "tags") {
-        // ... (你原来的 tags 代码保留)
+
+       
+
+        // 【获取标签】
+
+        if (request.method === "GET") {
+
+          // 获取最新的 30 个独立标签
+
+          const { results } = await env.DB.prepare("SELECT name FROM game_tags ORDER BY id DESC LIMIT 30").all();
+
+          const tags = results.map(r => r.name);
+
+          return new Response(JSON.stringify(tags), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        }
+
+       
+
+        // 【新增标签】
+
+        if (request.method === "POST") {
+
+          const { tags } = await request.json(); // 接收前端传来的数组，如 ['动作', '冒险']
+
+          if (tags && tags.length > 0) {
+
+            // 使用 INSERT OR IGNORE，数据库如果有这个词了就忽略，没有才新增，绝不重复！
+
+            const stmt = env.DB.prepare("INSERT OR IGNORE INTO game_tags (name) VALUES (?)");
+
+            const batch = tags.map(tag => stmt.bind(tag));
+
+            await env.DB.batch(batch); // 批量高效插入
+
+          }
+
+          return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        }
+
       }
 
       // ==========================================

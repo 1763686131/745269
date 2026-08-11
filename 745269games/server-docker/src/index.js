@@ -218,6 +218,59 @@ app.get('/api/games/:id', (req, res) => {
   res.json(gameData);
 });
 
+// ==========================================
+// 7. 获取与保存历史分类标签 (GET / POST /api/tags)
+// ==========================================
+
+// 【获取标签】
+app.get('/api/tags', (req, res) => {
+  try {
+    // 获取最新的 30 个独立标签 (注意你原表名是 game_tags)
+    const results = db.prepare("SELECT name FROM game_tags ORDER BY id DESC LIMIT 30").all();
+    
+    // 把 [{name: '动作'}, {name: '冒险'}] 转换为扁平数组 ['动作', '冒险']
+    const tags = results.map(r => r.name);
+    
+    res.json(tags);
+  } catch (err) {
+    console.error("获取标签报错:", err.message);
+    // 兜底机制：即使表不存在或报错，也返回空数组让前端正常渲染
+    res.json([]);
+  }
+});
+
+// 【新增标签】
+app.post('/api/tags', (req, res) => {
+  try {
+    const { tags } = req.body; // 接收前端传来的数组，如 ['动作', '冒险']
+    
+    if (tags && Array.isArray(tags) && tags.length > 0) {
+      // 准备好原汁原味的 INSERT OR IGNORE 语句，自带绝对去重防御
+      const insertStmt = db.prepare("INSERT OR IGNORE INTO game_tags (name) VALUES (?)");
+      
+      // 🌟 核心优化：使用 SQLite 事务 (Transaction) 替代 Cloudflare 的 batch
+      // 这样相当于把所有数据打包成一个包裹一次性塞进硬盘，写入速度提升几十倍！
+      const insertBatch = db.transaction((tagsArray) => {
+        for (const tag of tagsArray) {
+          if (tag && typeof tag === 'string' && tag.trim() !== '') {
+            insertStmt.run(tag.trim());
+          }
+        }
+      });
+      
+      // 执行批量高效插入
+      insertBatch(tags);
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error("保存标签报错:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+
 // 8. 互动引擎：增加下载量与赞爆数
 app.post('/api/games/:id/interact', (req, res) => {
   const id = req.params.id;

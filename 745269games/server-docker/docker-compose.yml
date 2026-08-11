@@ -1,13 +1,14 @@
-version: '3.8'
-
 services:
   game-app:
     build: .
-    container_name: 745269-docker-app
+    container_name: 745269-nas-app
     ports:
-      # 左边是外部访问端口，右边是容器内部端口，都是 1233
+      # 左边是NAS对外暴露的端口(你可以随便改)，右边是容器内部端口(必须是1233)
       - "1233:1233"
     volumes:
-      # 把本地的 data 文件夹挂载到容器内，保证 SQLite 数据库文件永不丢失
+      # 将 NAS 当前目录下的 data 文件夹映射给 SQLite 数据库，永不丢数据
       - ./data:/app/data
     restart: unless-stopped
+    environment:
+      # 强制修正容器时间为北京时间，确保日志和访客时间精准
+      - TZ=Asia/Shanghai

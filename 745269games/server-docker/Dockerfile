@@ -1,4 +1,5 @@
-FROM node:18-alpine
+# FROM node:18-alpine
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:18-alpine
 
 # 安装编译 better-sqlite3 必需的工具（避坑关键）
 RUN apk add --no-cache python3 py3-pip make g++
