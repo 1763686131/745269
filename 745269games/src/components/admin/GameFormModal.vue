@@ -173,7 +173,17 @@
                   <label>文件大小</label>
                   <input type="text" v-model="dl.file_size_display" placeholder="例如: 14.4 GB">
                 </div>
+                <div class="form-item">
+                  <label>最低配置</label>
+                  <textarea 
+                    v-model="dl.minimum_config" 
+                    class="textarea-box" 
+                    rows="3" 
+                    placeholder="例如:&#10;操作系统: Windows 10 64-bit&#10;处理器: Intel Core i5-6600K / AMD Ryzen 5 1600&#10;内存: 8 GB RAM&#10;显卡: NVIDIA GeForce GTX 1060 6GB / AMD Radeon RX 580"
+                     ></textarea>
+                </div>
               </div>
+              
 
               <div class="nested-section">
                 <div class="nested-header">
@@ -199,6 +209,25 @@
                     <input type="text" v-model="src.url" @input="handleUrlInput(dlIndex, srcIndex)" placeholder="粘贴网盘分享文字，将自动识别链接与提取码" class="flex-2">
                     <input type="text" v-model="src.password" placeholder="提取码" class="flex-1">
                     <button class="icon-btn-delete" @click="removeSource(dlIndex, srcIndex)" title="删除此链接">✕</button>
+                  </div>
+
+                  <div class="source-sub-row">
+                    <div class="qr-input-group">
+                      <span class="qr-label">📷 二维码外链:</span>
+                      <input 
+                        type="text" 
+                        v-model="src.qr_code" 
+                        placeholder="请粘贴二维码图片URL链接 (选填，方便手机扫码直达保存)" 
+                        class="input-qr-url"
+                      >
+                    </div>
+                  </div>
+
+                  <div v-if="src.qr_code" class="qr-big-preview-wrapper">
+                    <div class="qr-big-preview-box">
+                      <img :src="src.qr_code" class="qr-big-preview-img" alt="二维码预览">
+                      <button class="btn-delete-float" @click="src.qr_code = ''" title="清空二维码">✕</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -373,7 +402,14 @@ const removeScreenshot = (index) => {
 const addDownload = () => {
   if (!formData.value.downloads) formData.value.downloads = []
   formData.value.downloads.push({
-    platform: '', edition: '', version: '', file_format: '', file_size_display: '', system_requirements: {}, sources: []
+    platform: '', 
+    edition: '',
+    version: '', 
+    file_format: '', 
+    file_size_display: '', 
+    minimum_config: '',
+    system_requirements: {}, 
+    sources: []
   })
 }
 const removeDownload = (index) => formData.value.downloads.splice(index, 1)
@@ -381,7 +417,12 @@ const removeDownload = (index) => formData.value.downloads.splice(index, 1)
 const addSource = (dlIndex) => {
   if (!formData.value.downloads[dlIndex].sources) formData.value.downloads[dlIndex].sources = []
   formData.value.downloads[dlIndex].sources.push({
-    provider: 'baidu', name: '', url: '', password: '', is_valid: true
+    provider: 'baidu', 
+    name: '', 
+    url: '', 
+    password: '', 
+    qr_code: '',
+    is_valid: true
   })
 }
 const removeSource = (dlIndex, srcIndex) => formData.value.downloads[dlIndex].sources.splice(srcIndex, 1)
@@ -436,6 +477,7 @@ const handleUrlInput = (dlIndex, srcIndex) => {
   }
 }
 
+// 🌟 9. 核心：提交表单数据给父组件，并延迟刷新页面
 const handleSubmit = async () => {
   formData.value.aliases = [...selectedLanguages.value]
   
@@ -450,6 +492,12 @@ const handleSubmit = async () => {
 
   emit('submit', formData.value)
   handleClose()
+
+  // 👇 新增：提交完毕后，延迟 800 毫秒自动刷新页面
+  // 延迟是为了确保父组件的 API 保存请求能成功发往服务器，不断联
+  setTimeout(() => {
+    window.location.reload()
+  }, 800)
 }
 
 </script>
@@ -579,10 +627,88 @@ input[type="text"]:focus, .textarea-box:focus {
 }
 
 .textarea-box {
-  padding: 12px 16px; border-radius: 8px;
+  padding: 12px 16px;
+  border-radius: 8px;
   border: 1px solid var(--border-main, #E2E8F0);
   background-color: var(--bg-hover, #F8FAFC);
-  font-size: 14px; color: var(--text-heading, #0F172A); outline: none; resize: vertical; line-height: 1.6;
+  font-size: 13px;
+  color: var(--text-heading, #0F172A);
+  outline: none;
+  resize: vertical; /* 允许垂直方向手动拖拽拉伸变大 */
+  min-height: 80px;
+  line-height: 1.6;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.textarea-box:focus {
+  border-color: var(--color-admin-primary, #2DD4BF);
+  background-color: var(--bg-card, #ffffff);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.1);
+}
+
+/* 🌟 网盘节点第二行 (二维码外链输入框) 样式 */
+.source-sub-row {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+  padding-right: 50px;
+}
+
+.qr-input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.qr-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light, #94A3B8);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.input-qr-url {
+  flex: 1;
+  height: 36px !important;
+  font-size: 12px !important;
+  border-style: dashed !important;
+}
+
+/* 🌟 二维码独立另起一行、居中放大预览样式 */
+.qr-big-preview-wrapper {
+  display: flex;
+  justify-content: center; /* 居中对齐 */
+  align-items: center;
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 0;
+}
+
+.qr-big-preview-box {
+  position: relative;
+  width: 130px;  /* 放大宽度 */
+  height: 130px; /* 放大高度 */
+  padding: 8px;
+  border-radius: 12px;
+  border: 2px solid var(--border-main, #E2E8F0);
+  background-color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.qr-big-preview-box:hover {
+  border-color: var(--color-admin-primary, #2DD4BF);
+  transform: translateY(-2px);
+}
+
+.qr-big-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* 保证二维码显示完整不失真 */
+  border-radius: 6px;
 }
 
 .upload-action-row { display: flex; align-items: center; gap: 16px; width: 100%; }
