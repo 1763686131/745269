@@ -195,7 +195,7 @@
                   
                   <div class="source-row">
                     <input type="text" v-model="src.name" placeholder="网盘名称" class="flex-1">
-                    <input type="text" v-model="src.url" placeholder="下载链接" class="flex-2">
+                    <input type="text" v-model="src.url" @input="handleUrlInput(dlIndex, srcIndex)" placeholder="粘贴网盘分享文字，将自动识别链接与提取码" class="flex-2">
                     <input type="text" v-model="src.password" placeholder="提取码" class="flex-1">
                     <button class="icon-btn-delete" @click="removeSource(dlIndex, srcIndex)" title="删除此链接">✕</button>
                   </div>
@@ -386,6 +386,43 @@ const setDriveName = (dlIndex, srcIndex, driveName) => {
   formData.value.downloads[dlIndex].sources[srcIndex].name = driveName
 }
 
+
+// 🌟 8. 智能解析网盘粘贴文案（自动裁剪 URL 并提取密码）
+const handleUrlInput = (dlIndex, srcIndex) => {
+  const src = formData.value.downloads[dlIndex].sources[srcIndex]
+  const rawText = src.url
+
+  if (!rawText) return
+
+  // 1. 匹配提取纯净的 HTTP/HTTPS 链接（过滤前后的中文和杂质）
+  const urlMatch = rawText.match(/(https?:\/\/[^\s\u4e00-\u9fa5]+)/i)
+
+  if (urlMatch) {
+    // 剔除末尾可能误带入的句号或英文标点
+    let cleanUrl = urlMatch[1].replace(/[,\.！!]+$/, '')
+
+    // 2. 智能提取密码/提取码（支持 pwd=5269、提取码: 5269、密码: 5269 等各种格式）
+    let extractedPwd = ''
+    
+    // 优先识别链接参数里的 ?pwd=xxxx 或 &pwd=xxxx
+    const pwdInUrl = cleanUrl.match(/[?&]pwd=([a-zA-Z0-9]+)/i)
+    // 其次识别文本里的 提取码: xxxx / 密码: xxxx / pwd: xxxx
+    const pwdInText = rawText.match(/(?:提取码|密码|pwd)[:：\s]*([a-zA-Z0-9]+)/i)
+
+    if (pwdInUrl) {
+      extractedPwd = pwdInUrl[1]
+    } else if (pwdInText) {
+      extractedPwd = pwdInText[1]
+    }
+
+    // 3. 自动更新输入框中的数据
+    src.url = cleanUrl
+    if (extractedPwd) {
+      src.password = extractedPwd
+    }
+  }
+}
+
 const handleSubmit = async () => {
   formData.value.aliases = [...selectedLanguages.value]
   
@@ -401,6 +438,7 @@ const handleSubmit = async () => {
   emit('submit', formData.value)
   handleClose()
 }
+
 </script>
 
 
