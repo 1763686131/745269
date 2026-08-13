@@ -58,9 +58,10 @@
                       v-for="tag in historyGenres" 
                       :key="tag" 
                       class="history-tag"
-                      @click="appendGenre(tag)"
+                      :class="{ 'is-active': isGenreSelected(tag) }"
+                      @click="toggleGenre(tag)"
                     >
-                      {{ tag }} +
+                      {{ tag }} {{ isGenreSelected(tag) ? '✓' : '+' }}
                     </button>
                     <button class="history-clear" @click="clearHistoryGenres" title="清空历史记录">清空</button>
                   </div>
@@ -274,15 +275,27 @@ onMounted(async () => {
   historyGenres.value = gameStore.historyTags
 })
 
-const appendGenre = (tag) => {
-  if (!tempGenres.value) {
-    tempGenres.value = tag
+// 🌟 检查某个标签当前是否已在输入框中（支持中文/英文逗号与空格自动拆分匹配）
+const isGenreSelected = (tag) => {
+  if (!tempGenres.value) return false
+  const currentTags = tempGenres.value.split(/,|，/).map(s => s.trim()).filter(Boolean)
+  return currentTags.includes(tag)
+}
+
+// 🌟 智能切换标签：未选中时点击增加，已选中时再次点击自动移除
+const toggleGenre = (tag) => {
+  let currentTags = tempGenres.value ? tempGenres.value.split(/,|，/).map(s => s.trim()).filter(Boolean) : []
+  
+  if (currentTags.includes(tag)) {
+    // 如果已经存在，再次点击就从输入框里剔除
+    currentTags = currentTags.filter(t => t !== tag)
   } else {
-    const currentTags = tempGenres.value.split(/,|，/).map(s => s.trim())
-    if (!currentTags.includes(tag)) {
-      tempGenres.value += `, ${tag}`
-    }
+    // 如果不存在，追加进去
+    currentTags.push(tag)
   }
+  
+  // 重新拼回带逗号加空格的规范字符串
+  tempGenres.value = currentTags.join(', ')
 }
 
 const clearHistoryGenres = () => {
@@ -531,6 +544,23 @@ const handleSubmit = async () => {
   background: var(--bg-hover, #F1F5F9); border: 1px dashed var(--border-dark, #CBD5E1);
   color: var(--text-main, #475569); padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;
 }
+
+/* 🌟 标签已被选中/已输入的激活高亮状态 */
+.history-tag.is-active {
+  background-color: var(--color-admin-primary, #2DD4BF);
+  border-color: var(--color-admin-primary, #2DD4BF);
+  border-style: solid;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(45, 212, 191, 0.3);
+}
+
+.history-tag.is-active:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+
+
 .history-tag:hover { background: var(--bg-card, #ffffff); border-color: var(--color-admin-primary, #2DD4BF); color: var(--color-admin-primary, #2DD4BF); transform: translateY(-1px); }
 .history-clear { background: transparent; border: none; color: var(--color-danger, #EF4444); font-size: 11px; font-weight: 700; cursor: pointer; margin-left: 4px; opacity: 0.8; }
 .history-clear:hover { opacity: 1; text-decoration: underline; }
