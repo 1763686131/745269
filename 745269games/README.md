@@ -1,10 +1,10 @@
-# Vue 3 + Vite
+# 游戏网站前端项目
 
-## VUE3 
+## VUE3 前端框架
 
 运行代码: npm run dev
-打包代码：npm run build
 
+打包代码：npm run build
 
 ### 前端目录结构
 
@@ -47,7 +47,7 @@ src/
 
 ```
 
-### 后端目录结构
+### Cloudflare后端目录结构
 
 ```Plaintext
 
@@ -61,9 +61,7 @@ server-Cloudflare/
 └── wrangler.toml      #Cloudflare  指引文件
 ```
 
-
-### 后端运行代码：
-
+## 后端运行代码：
 
 确保你在 server-Cloudflare 目录下
 
@@ -73,22 +71,21 @@ npx wrangler dev
 
 ```
 
-
-### 运行数据库的表
+### 运行数据库的表（初始化运行）
 
 ```bash
 npx wrangler d1 execute games --local --file=./schema.sql
 ```
 
+<br />
 
-### 数据库增加变量
+### 数据库增加变量（可选）
 
 ```bash
 npx wrangler d1 execute games --local --command="ALTER TABLE games ADD COLUMN video_url TEXT;"
 ```
 
-
-### docker 运行
+## docker后端目录结构
 
 目录结构：
 
@@ -106,6 +103,8 @@ server-docker/
 
 ```
 
+### docker 容器运行
+
 确保你在 server-docker 目录下
 
 ```bash
@@ -113,3 +112,38 @@ server-docker/
 docker-compose up -d --build
 
 ```
+
+<br />
+
+## 项目优化进程
+
+* [ ] 后台分类分类记录向右排列
+
+* [ ] 弹窗点击空白处不会关闭
+
+* [ ] 游戏详情截图 (URL外链)支持多个粘贴
+
+* [ ] 网盘下载节点支持标签输入
+
+* [ ] 下载链接支持http前面字符自动裁剪
+
+* [ ] 分类页二级选项框，当选一级的时候二级也要变化
+
+* [ ] 分类页点击游戏进入详情页返回分类页刷新数据修复
+
+* [ ] IP反馈修复（目前是获取不了IP）
+
+* [ ] 访问数据优化，数据不准确
+
+## 项目增加内容
+
+<br />
+
+* [ ] 不知道玩啥？每日抽奖，四张卡片
+
+* [ ] 增加返回首页按钮
+
+* [ ] 详情页增加用户反馈标签：比如晕3D，无聊等
+
+* [ ] 悬浮按钮，按钮有反馈问题、加QQ群等...
+
