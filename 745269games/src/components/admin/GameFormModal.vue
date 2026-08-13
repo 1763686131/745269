@@ -180,11 +180,25 @@
                   <button class="btn-add-small" @click="addSource(dlIndex)">+ 增加网盘链接</button>
                 </div>
                 
-                <div v-for="(src, srcIndex) in dl.sources" :key="srcIndex" class="source-row">
-                  <input type="text" v-model="src.name" placeholder="网盘名称" class="flex-1">
-                  <input type="text" v-model="src.url" placeholder="下载链接" class="flex-2">
-                  <input type="text" v-model="src.password" placeholder="提取码" class="flex-1">
-                  <button class="icon-btn-delete" @click="removeSource(dlIndex, srcIndex)" title="删除此链接">✕</button>
+                <div v-for="(src, srcIndex) in dl.sources" :key="srcIndex" class="source-item-wrapper">
+                  <div class="preset-drives-tags">
+                    <span class="preset-label">快捷输入:</span>
+                    <button 
+                      v-for="drive in presetDrives" 
+                      :key="drive" 
+                      class="preset-tag"
+                      @click="setDriveName(dlIndex, srcIndex, drive)"
+                    >
+                      {{ drive }}
+                    </button>
+                  </div>
+                  
+                  <div class="source-row">
+                    <input type="text" v-model="src.name" placeholder="网盘名称" class="flex-1">
+                    <input type="text" v-model="src.url" placeholder="下载链接" class="flex-2">
+                    <input type="text" v-model="src.password" placeholder="提取码" class="flex-1">
+                    <button class="icon-btn-delete" @click="removeSource(dlIndex, srcIndex)" title="删除此链接">✕</button>
+                  </div>
                 </div>
               </div>
 
@@ -595,6 +609,30 @@ input[type="text"]:focus, .textarea-box:focus {
   box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.2); transition: all 0.2s;
 }
 .btn-submit:hover { transform: translateY(-1px); opacity: 0.9; }
+
+/* 🌟 网盘快捷标签与容器样式 */
+.source-item-wrapper {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;
+  padding-bottom: 16px; border-bottom: 1px dashed var(--border-main, #E2E8F0);
+}
+/* 最后一个隐藏虚线底边 */
+.source-item-wrapper:last-child {
+  margin-bottom: 0; padding-bottom: 0; border-bottom: none;
+}
+.preset-drives-tags {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: -2px;
+}
+.preset-label {
+  font-size: 12px; color: var(--text-light, #94A3B8); font-weight: 700; flex-shrink: 0;
+}
+.preset-tag {
+  background: transparent; border: 1px solid var(--border-dark, #CBD5E1);
+  color: var(--text-main, #475569); padding: 2px 8px; border-radius: 4px; 
+  font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+.preset-tag:hover {
+  background: var(--color-admin-primary, #2DD4BF); color: #ffffff; border-color: var(--color-admin-primary, #2DD4BF);
+}
 
 .hidden-input { display: none !important; }
 </style>
