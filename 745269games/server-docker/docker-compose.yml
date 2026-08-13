@@ -3,12 +3,16 @@ services:
     build: .
     container_name: 745269-nas-app
     ports:
-      # 左边是NAS对外暴露的端口(你可以随便改)，右边是容器内部端口(必须是1233)
+      # 左边是NAS对外暴露的端口，右边是容器内部端口
       - "1233:1233"
     volumes:
-      # 将 NAS 当前目录下的 data 文件夹映射给 SQLite 数据库，永不丢数据
+      # 1. 数据库映射：保证数据永不丢失
       - ./data:/app/data
+      # 2.将 NAS 当前目录下的 dist 文件夹，直接映射给容器内部！
+      - ./dist:/app/dist
+      # 3.将 NAS 当前目录下的 src 文件夹，直接映射给容器内部！
+      - ./src:/app/src
     restart: unless-stopped
     environment:
-      # 强制修正容器时间为北京时间，确保日志和访客时间精准
+      # 强制修正容器时间为北京时间
       - TZ=Asia/Shanghai
