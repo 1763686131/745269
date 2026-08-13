@@ -1,6 +1,6 @@
 <template>
   <transition name="modal-fade">
-    <div v-if="showModal" class="modal-overlay" @click.self="handleClose">
+    <div v-if="showModal" class="modal-overlay">
       <div class="modal-container">
         
         <header class="modal-header">
@@ -48,7 +48,7 @@
                 </div>
               </div>
               
-              <div class="form-item">
+              <div class="form-item full-width">
                 <label>游戏分类 (用逗号分隔)</label>
                 <input type="text" v-model="tempGenres" placeholder="例如: 动作, 冒险, 开放世界">
                 <div class="history-tags-wrapper" v-if="historyGenres.length > 0">
@@ -321,12 +321,20 @@ const handleImgError = (e) => {
   // 可加上占位图逻辑
 }
 
+// 🌟 6. 核心：截图链接的批量添加逻辑
 const addScreenshotUrl = () => {
-  const url = tempScreenshotUrl.value.trim()
-  if (url) {
+  const rawString = tempScreenshotUrl.value.trim()
+  if (rawString) {
     if (!formData.value.media) formData.value.media = { cover: '', screenshots: [], video: '' }
     if (!formData.value.media.screenshots) formData.value.media.screenshots = []
-    formData.value.media.screenshots.push(url)
+    
+    // 🌟 核心魔法：利用正则表达式，根据“空格”、“英文逗号”、“中文逗号”或者“换行符”自动切割字符串
+    const urlArray = rawString.split(/[\s,，]+/).filter(url => url.trim() !== '')
+    
+    // 将切割出来的多个链接一次性追加到截图数组中
+    formData.value.media.screenshots.push(...urlArray)
+    
+    // 清空输入框
     tempScreenshotUrl.value = '' 
   }
 }
@@ -355,6 +363,13 @@ const handleClose = () => {
   emit('update:visible', false)
   emit('update:modelValue', false)
   emit('input', false)
+}
+
+// 🌟 7. 核心：网盘名称的预设与修改逻辑
+const presetDrives = ['百度网盘', '夸克网盘', '迅雷云盘', '阿里云盘', '天翼云盘', '123云盘']
+const setDriveName = (dlIndex, srcIndex, driveName) => {
+  // 直接精准定位到对应版本、对应网盘链接的 name 字段并赋值
+  formData.value.downloads[dlIndex].sources[srcIndex].name = driveName
 }
 
 const handleSubmit = async () => {
@@ -435,10 +450,31 @@ const handleSubmit = async () => {
   background-color: var(--color-admin-primary, #2DD4BF); border-color: var(--color-admin-primary, #2DD4BF); color: #ffffff;
 }
 
-/* 🌟 历史标签样式 */
-.history-tags-wrapper { margin-top: 8px; display: flex; align-items: flex-start; gap: 8px; }
-.history-label { font-size: 12px; color: var(--text-light, #94A3B8); font-weight: 700; white-space: nowrap; padding-top: 4px; }
-.history-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* 🌟 历史标签样式 (已修复左对齐留白问题) */
+.history-tags-wrapper { 
+  margin-top: 8px; 
+  display: flex; 
+  align-items: flex-start; 
+  justify-content: flex-start; /* 新增：强制外层容器整体靠左对齐 */
+  gap: 8px; 
+  width: 100%; /* 新增：保证外层容器撑满 100% 宽度 */
+}
+.history-label { 
+  font-size: 12px; 
+  color: var(--text-light, #94A3B8); 
+  font-weight: 700; 
+  white-space: nowrap; 
+  padding-top: 4px; 
+  flex-shrink: 0; /* 新增：防止“推荐记录:”这几个字被后面的标签挤压变形 */
+}
+.history-tags { 
+  display: flex; 
+  flex-wrap: wrap; 
+  justify-content: flex-start; /* 新增：强制里面的所有标签严格从左向右排列 */
+  gap: 8px; 
+  align-items: center; 
+  flex: 1; /* 新增：让标签容器独占剩下所有的空间，杜绝往右缩的情况 */
+}
 .history-tag {
   background: var(--bg-hover, #F1F5F9); border: 1px dashed var(--border-dark, #CBD5E1);
   color: var(--text-main, #475569); padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;
