@@ -99,12 +99,14 @@ const loadData = async () => {
   accessLogs.value = logsRes
   isLoading.value = false
   
+  // 🌟 一句话调用全局 Store 里的 IP 解析引擎！
   if (accessLogs.value.length > 0) {
-    fetchLocations(accessLogs.value);
+    const ipArray = accessLogs.value.map(log => log.user_ip)
+    gameStore.parseIps(ipArray)
   }
 }
 
-// 🌟 2. 点击清空日志触发二次确认与请求
+// 🌟 清空日志触发二次确认与请求
 const handleClearLogs = async () => {
   if (!confirm('🚨 确定要清空所有的访客日志记录吗？此操作无法撤销哦！')) {
     return
