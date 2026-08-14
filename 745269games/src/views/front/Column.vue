@@ -4,7 +4,7 @@
     <div class="page-header-container">
       <div class="header-content">
         <h1 class="category-title">
-          <span class="cyber-accent" @click="$router.push('/')" title="返回首页">⬅️</span> 
+          <span class="cyber-accent" @click="$router.push('/')" title="返回首页">⬅</span> 
           {{ currentCategory.title }}
         </h1>
         <p class="category-subtitle">已从服务器为您搬运 {{ totalCount }} 款游戏入库</p>
@@ -116,10 +116,6 @@ import { useGameStore } from '@/store/gameStore.js'
 
 const route = useRoute()
 const gameStore = useGameStore()
-const sortOrder = ref('newest')
-
-const selectedGenre = ref('全部')
-const selectedPlatform = ref('全部')
 
 const categoryMap = {
   'single': { title: '大型单人游戏', tags: '单人' },
@@ -132,6 +128,35 @@ const categoryMap = {
 const currentCategory = computed(() => {
   return categoryMap[route.params.id] || { title: '全部游戏库', tags: '' }
 })
+
+// 🌟 1. 智能读取记忆的筛选状态（同分类恢复，异分类重置）
+const getInitialFilter = () => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('column_filter_state') || '{}')
+    // 只有当上次记录的栏目 ID 与当前页面相同时，才恢复筛选条件
+    if (saved && saved.categoryId === route.params.id) {
+      return saved
+    }
+  } catch (e) {}
+  return { platform: '全部', genre: '全部', sortOrder: 'newest' }
+}
+
+const initialFilter = getInitialFilter()
+
+const selectedPlatform = ref(initialFilter.platform || '全部')
+const selectedGenre = ref(initialFilter.genre || '全部')
+const sortOrder = ref(initialFilter.sortOrder || 'newest')
+
+// 🌟 2. 保存当前筛选状态到浏览器缓存
+const saveFilterState = () => {
+  const state = {
+    categoryId: route.params.id,
+    platform: selectedPlatform.value,
+    genre: selectedGenre.value,
+    sortOrder: sortOrder.value
+  }
+  sessionStorage.setItem('column_filter_state', JSON.stringify(state))
+}
 
 // === 支持平台（一级分类：永远从全部游戏里提取） ===
 const availablePlatforms = computed(() => {
@@ -147,14 +172,11 @@ const availablePlatforms = computed(() => {
   return ['全部', ...Array.from(platforms)]
 })
 
-// === 🌟 核心修改：游戏玩法（二级分类：根据选中的一级平台动态提取） ===
+// === 游戏玩法（二级分类：根据选中的一级平台动态提取） ===
 const availableGenres = computed(() => {
   const genres = new Set()
-  
-  // 1. 先拿到所有要计算的游戏池
   let gamesToExtract = gameStore.allGames
   
-  // 2. 如果选中了具体的平台（不是全部），那就先过滤一波！
   if (selectedPlatform.value !== '全部') {
     gamesToExtract = gamesToExtract.filter(game => {
       const pTags = game.metadata?.platforms || []
@@ -162,7 +184,6 @@ const availableGenres = computed(() => {
     })
   }
 
-  // 3. 从最终过滤好的游戏池里，提取出独属的玩法标签
   gamesToExtract.forEach(game => {
     if (game.metadata?.genres && Array.isArray(game.metadata.genres)) {
       game.metadata.genres.forEach(g => {
@@ -174,14 +195,26 @@ const availableGenres = computed(() => {
   return ['全部', ...Array.from(genres)]
 })
 
-const setGenre = (genre) => { selectedGenre.value = genre }
-const setPlatform = (plat) => { selectedPlatform.value = plat }
-const setSortOrder = (order) => { sortOrder.value = order }
+// === 切换筛选条件并同步更新状态记忆 ===
+const setGenre = (genre) => { 
+  selectedGenre.value = genre 
+  saveFilterState()
+}
 
-// === 🌟 核心细节：监听一级平台变化，自动重置二级玩法 ===
+const setPlatform = (plat) => { 
+  selectedPlatform.value = plat 
+  // 触发 watch(selectedPlatform) 后会自动将 selectedGenre 重置为 '全部' 并保存
+}
+
+const setSortOrder = (order) => { 
+  sortOrder.value = order 
+  saveFilterState()
+}
+
+// === 监听一级平台变化：重置二级玩法并更新状态 ===
 watch(selectedPlatform, (newVal) => {
-  // 当平台发生切换时，把玩法重置回“全部”，防止筛选出死数据
   selectedGenre.value = '全部'
+  saveFilterState()
 })
 
 const fetchCurrentCategoryGames = () => {
@@ -192,11 +225,13 @@ onMounted(() => {
   fetchCurrentCategoryGames()
 })
 
+// === 顶部导航栏切换不同大分类（如从“单人”切到“双人”）：清空状态并重置 ===
 watch(() => route.params.id, () => {
   if (route.name === 'Column') {
     selectedGenre.value = '全部'
     selectedPlatform.value = '全部'
     sortOrder.value = 'newest'
+    saveFilterState()
     fetchCurrentCategoryGames()
   }
 })
@@ -221,7 +256,6 @@ const displayedGames = computed(() => {
     })
   }
 
-  // 🌟 核心修复 1：真实接入赞爆和下载量数据进行排序
   games.sort((a, b) => {
     if (sortOrder.value === 'newest') {
       return new Date(b.system?.created_at || 0).getTime() - new Date(a.system?.created_at || 0).getTime()
@@ -238,7 +272,6 @@ const displayedGames = computed(() => {
     }
   })
 
-  // 🌟 核心修复 2：把从后端拿到的真实数据传给 UI 渲染
   return games.map(game => {
     const tags = []
     if (game.metadata?.platforms) game.metadata.platforms.forEach(p => tags.push({ name: p.toUpperCase(), type: 'platform' }))
@@ -250,7 +283,7 @@ const displayedGames = computed(() => {
       cover: game.media?.cover || '',
       rating: game.metadata?.rating || null,
       downloadsCount: game.download_count || 0,
-      likesCount: game.likes || game.likesCount || 0, // 👈 取消死占位，绑定真实赞爆数据
+      likesCount: game.likes || game.likesCount || 0,
       tags: tags
     }
   })
@@ -258,6 +291,10 @@ const displayedGames = computed(() => {
 
 const totalCount = computed(() => gameStore.allGames.length)
 </script>
+
+
+
+
 <style scoped>
 @import '@/assets/styles/theme.css'; 
 
