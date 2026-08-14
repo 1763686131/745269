@@ -57,7 +57,9 @@
         <div class="table-row" v-for="log in accessLogs" :key="log.id">
           <div class="col-id id-text">#{{ log.id }}</div>
           <div class="col-ip ip-code">{{ log.user_ip || '127.0.0.1' }}</div>
-          <div class="col-location location-text">中国</div>
+          <div class="col-location location-text">
+            {{ locationMap[log.user_ip] || '正在定位...' }}
+          </div>
           <div class="col-path path-pill">
             <code>{{ log.path || '/' }}</code>
           </div>
@@ -79,6 +81,36 @@ const gameStore = useGameStore()
 const isLoading = ref(true)
 const summary = ref({ todayPv: 0, todayUv: 0, totalVisits: 0, totalDownloads: 0 })
 const accessLogs = ref([])
+// 🌟 1. 新增：用来存储 IP 对应城市的字典
+const locationMap = ref({})
+
+// 🌟 2. 新增：高并发 IP 定位引擎
+const fetchLocations = async (logs) => {
+  // 提取所有不重复的 IP，避免同一个 IP 请求好几次 API
+  const uniqueIps = [...new Set(logs.map(log => log.user_ip))];
+  
+  for (const ip of uniqueIps) {
+    // 过滤掉内网和未知 IP
+    if (!ip || ip === 'unknown_ip' || ip === '127.0.0.1' || ip.startsWith('192.168') || ip.startsWith('172.')) {
+      locationMap.value[ip] = '局域网/本地';
+      continue;
+    }
+    
+    // 调用免费的 IP 归属地接口 (使用 https 防止混合内容报错)
+    try {
+      const response = await fetch(`https://demo.ip-api.com/json/${ip}?lang=zh-CN`);
+      const data = await response.json();
+      if (data.status === 'success') {
+        // 拼接成 "广东省 深圳市" 这种格式
+        locationMap.value[ip] = `${data.regionName} ${data.city}`;
+      } else {
+        locationMap.value[ip] = '中国';
+      }
+    } catch (error) {
+      locationMap.value[ip] = '中国';
+    }
+  }
+}
 
 const loadData = async () => {
   isLoading.value = true
@@ -89,11 +121,18 @@ const loadData = async () => {
   summary.value = sumRes
   accessLogs.value = logsRes
   isLoading.value = false
+  
+  // 🌟 3. 拿到日志后，立刻启动定位引擎
+  if (accessLogs.value.length > 0) {
+    fetchLocations(accessLogs.value);
+  }
 }
 
 onMounted(() => {
   loadData()
 })
+
+
 
 const parseUserAgent = (ua) => {
   if (!ua) return 'PC / Chrome'
@@ -102,10 +141,26 @@ const parseUserAgent = (ua) => {
   return '💻 Windows 电脑'
 }
 
+// 🌟 完美时区转换引擎
 const formatDate = (str) => {
   if (!str) return '-'
-  return new Date(str).toLocaleString('zh-CN', {
-    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
+  
+  // 核心修复：把 SQLite 返回的 "2026-08-15 15:00:00" 
+  // 替换为标准 ISO 格式 "2026-08-15T15:00:00Z"
+  // 末尾的 'Z' 是最关键的魔法，它告诉浏览器：“这是国际零时区时间！”
+  // 浏览器接到后，会自动为你加上 8 小时，变成完美的北京时间！
+  let cleanStr = str;
+  if (!str.includes('Z') && !str.includes('T')) {
+    cleanStr = str.replace(' ', 'T') + 'Z';
+  }
+
+  return new Date(cleanStr).toLocaleString('zh-CN', {
+    month: '2-digit', 
+    day: '2-digit', 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit',
+    hour12: false // 强制 24 小时制，看着更专业
   })
 }
 </script>

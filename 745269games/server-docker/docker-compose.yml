@@ -8,10 +8,12 @@ services:
     volumes:
       # 1. 数据库映射：保证数据永不丢失
       - ./data:/app/data
-      # 2.将 NAS 当前目录下的 dist 文件夹，直接映射给容器内部！
+      # 2. 将 NAS 当前目录下的 dist 文件夹，直接映射给容器内部！
       - ./dist:/app/dist
-      # 3.将 NAS 当前目录下的 src 文件夹，直接映射给容器内部！
+      # 3. 将 NAS 当前目录下的 src 文件夹，直接映射给容器内部！
       - ./src:/app/src
+      # 🌟 4. 核心修复：把建表脚本也映射进去！这样你改了立马生效！
+      - ./schema.sql:/app/schema.sql
     restart: unless-stopped
     environment:
       # 强制修正容器时间为北京时间

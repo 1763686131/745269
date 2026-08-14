@@ -97,10 +97,26 @@ const handleDelete = async (id) => {
   }
 }
 
+// 🌟 完美时区转换引擎
 const formatDate = (str) => {
   if (!str) return '-'
-  return new Date(str).toLocaleString('zh-CN', {
-    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+  
+  // 核心修复：把 SQLite 返回的 "2026-08-15 15:00:00" 
+  // 替换为标准 ISO 格式 "2026-08-15T15:00:00Z"
+  // 末尾的 'Z' 是最关键的魔法，它告诉浏览器：“这是国际零时区时间！”
+  // 浏览器接到后，会自动为你加上 8 小时，变成完美的北京时间！
+  let cleanStr = str;
+  if (!str.includes('Z') && !str.includes('T')) {
+    cleanStr = str.replace(' ', 'T') + 'Z';
+  }
+
+  return new Date(cleanStr).toLocaleString('zh-CN', {
+    month: '2-digit', 
+    day: '2-digit', 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit',
+    hour12: false // 强制 24 小时制，看着更专业
   })
 }
 </script>

@@ -32,30 +32,29 @@ if (fs.existsSync(schemaPath)) {
   console.log('数据库表结构校验完毕。');
 }
 
-// ================= 2. 全局防刷/节流引擎 (Express 中间件) =================
-const rateLimitMap = new Map();
-app.use('/api', (req, res, next) => {
-  const clientIP = req.ip || req.headers['x-forwarded-for'] || "unknown_ip";
-  const now = Date.now();
+// ================= 2.5 流量监控雷达 (全局记录访客日志) =================
+app.use((req, res, next) => {
+  // 只记录前台用户的访问 (排除静态文件、后台 API 等无用数据)
+  if (req.method === 'GET' && !req.path.includes('.') && !req.path.startsWith('/api/')) {
+    
+    // 1. 抓取真实 IP
+    const clientIP = req.headers['cf-connecting-ip'] || 
+                     (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : '') || 
+                     req.ip || "unknown_ip";
+                     
+    // 2. 抓取访问路径和设备信息
+    const path = req.path;
+    const userAgent = req.headers['user-agent'] || 'Unknown Device';
+    const referer = req.headers['referer'] || '';
 
-  // 只拦截 POST, PUT, DELETE (写操作)
-  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-    // 放行 interact 接口（点赞/下载）
-    if (!req.path.includes('/interact')) {
-      const apiType = req.path.split('/')[1] || "general"; 
-      const limitKey = `${clientIP}_${apiType}`;
-
-      if (rateLimitMap.has(limitKey)) {
-        const unlockTime = rateLimitMap.get(limitKey);
-        if (now < unlockTime) {
-          const remaining = Math.ceil((unlockTime - now) / 1000);
-          return res.status(429).json({ 
-            success: false, 
-            error: `操作过于频繁，已被服务端拦截！请等待 ${remaining} 秒后再试` 
-          });
-        }
-      }
-      rateLimitMap.set(limitKey, now + 10 * 1000);
+    // 3. 异步写入数据库 (不阻塞用户的正常访问速度)
+    try {
+      db.prepare(`
+        INSERT INTO site_logs (user_ip, path, user_agent, referer) 
+        VALUES (?, ?, ?, ?)
+      `).run(clientIP, path, userAgent, referer);
+    } catch (error) {
+      console.error("记录流量日志失败:", error.message);
     }
   }
   next();
@@ -381,23 +380,32 @@ app.delete('/api/users/:id', (req, res) => {
 
 // 16. 获取访问数据概要
 app.get('/api/analytics/summary', (req, res) => {
-  const todayPvRes = db.prepare("SELECT COUNT(*) as count FROM site_logs WHERE created_at > date('now', 'start of day')").get();
-  const todayUvRes = db.prepare("SELECT COUNT(DISTINCT user_ip) as count FROM site_logs WHERE created_at > date('now', 'start of day')").get();
-  const totalVisitsRes = db.prepare("SELECT COUNT(*) as count FROM site_logs").get();
-  const totalDownloadsRes = db.prepare("SELECT SUM(download_count) as total FROM games").get();
+  try {
+    // 修复时区：使用 localtime 确保今日数据的准确性
+    const todayPvRes = db.prepare("SELECT COUNT(*) as count FROM site_logs WHERE date(created_at, 'localtime') = date('now', 'localtime')").get();
+    const todayUvRes = db.prepare("SELECT COUNT(DISTINCT user_ip) as count FROM site_logs WHERE date(created_at, 'localtime') = date('now', 'localtime')").get();
+    const totalVisitsRes = db.prepare("SELECT COUNT(*) as count FROM site_logs").get();
+    const totalDownloadsRes = db.prepare("SELECT SUM(download_count) as total FROM games").get();
 
-  res.json({
-    todayPv: todayPvRes?.count || 0,
-    todayUv: todayUvRes?.count || 0,
-    totalVisits: totalVisitsRes?.count || 0,
-    totalDownloads: totalDownloadsRes?.total || 0
-  });
+    res.json({
+      todayPv: todayPvRes?.count || 0,
+      todayUv: todayUvRes?.count || 0,
+      totalVisits: totalVisitsRes?.count || 0,
+      totalDownloads: totalDownloadsRes?.total || 0
+    });
+  } catch (err) {
+    res.json({ todayPv: 0, todayUv: 0, totalVisits: 0, totalDownloads: 0 });
+  }
 });
 
 // 17. 获取实时访问日志明细
 app.get('/api/analytics/logs', (req, res) => {
-  const results = db.prepare("SELECT * FROM site_logs ORDER BY id DESC LIMIT 50").all();
-  res.json(results);
+  try {
+    const results = db.prepare("SELECT * FROM site_logs ORDER BY id DESC LIMIT 50").all();
+    res.json(results);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // 18. 后台管理员高安全登录
