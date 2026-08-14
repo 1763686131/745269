@@ -38,7 +38,14 @@
     <div class="data-card">
       <div class="card-header-row">
         <h2 class="card-title">🌐 实时访客轨迹日志 (最近50条)</h2>
-        <button class="btn-refresh" @click="loadData">刷新数据 🔄</button>
+        <div class="header-btn-group">
+          <button class="btn-action btn-refresh" @click="loadData" :disabled="isLoading">
+            刷新数据 🔄
+          </button>
+          <button class="btn-action btn-clear" @click="handleClearLogs" :disabled="isLoading || accessLogs.length === 0">
+            清空日志 🗑️
+          </button>
+        </div>
       </div>
 
       <div class="table-container">
@@ -58,7 +65,7 @@
           <div class="col-id id-text">#{{ log.id }}</div>
           <div class="col-ip ip-code">{{ log.user_ip || '127.0.0.1' }}</div>
           <div class="col-location location-text">
-            {{ locationMap[log.user_ip] || '正在定位...' }}
+            {{ gameStore.ipLocationMap[log.user_ip] || '正在定位...' }}
           </div>
           <div class="col-path path-pill">
             <code>{{ log.path || '/' }}</code>
@@ -81,36 +88,6 @@ const gameStore = useGameStore()
 const isLoading = ref(true)
 const summary = ref({ todayPv: 0, todayUv: 0, totalVisits: 0, totalDownloads: 0 })
 const accessLogs = ref([])
-// 🌟 1. 新增：用来存储 IP 对应城市的字典
-const locationMap = ref({})
-
-// 🌟 2. 新增：高并发 IP 定位引擎
-const fetchLocations = async (logs) => {
-  // 提取所有不重复的 IP，避免同一个 IP 请求好几次 API
-  const uniqueIps = [...new Set(logs.map(log => log.user_ip))];
-  
-  for (const ip of uniqueIps) {
-    // 过滤掉内网和未知 IP
-    if (!ip || ip === 'unknown_ip' || ip === '127.0.0.1' || ip.startsWith('192.168') || ip.startsWith('172.')) {
-      locationMap.value[ip] = '局域网/本地';
-      continue;
-    }
-    
-    // 调用免费的 IP 归属地接口 (使用 https 防止混合内容报错)
-    try {
-      const response = await fetch(`https://demo.ip-api.com/json/${ip}?lang=zh-CN`);
-      const data = await response.json();
-      if (data.status === 'success') {
-        // 拼接成 "广东省 深圳市" 这种格式
-        locationMap.value[ip] = `${data.regionName} ${data.city}`;
-      } else {
-        locationMap.value[ip] = '中国';
-      }
-    } catch (error) {
-      locationMap.value[ip] = '中国';
-    }
-  }
-}
 
 const loadData = async () => {
   isLoading.value = true
@@ -122,17 +99,31 @@ const loadData = async () => {
   accessLogs.value = logsRes
   isLoading.value = false
   
-  // 🌟 3. 拿到日志后，立刻启动定位引擎
   if (accessLogs.value.length > 0) {
     fetchLocations(accessLogs.value);
+  }
+}
+
+// 🌟 2. 点击清空日志触发二次确认与请求
+const handleClearLogs = async () => {
+  if (!confirm('🚨 确定要清空所有的访客日志记录吗？此操作无法撤销哦！')) {
+    return
+  }
+
+  isLoading.value = true
+  const res = await gameStore.clearAccessLogs()
+  if (res.success) {
+    alert('✅ 所有访问日志已被成功清空！')
+    await loadData() // 刷新页面数据
+  } else {
+    alert(`❌ 清空失败: ${res.error || '网络错误'}`)
+    isLoading.value = false
   }
 }
 
 onMounted(() => {
   loadData()
 })
-
-
 
 const parseUserAgent = (ua) => {
   if (!ua) return 'PC / Chrome'
@@ -141,26 +132,14 @@ const parseUserAgent = (ua) => {
   return '💻 Windows 电脑'
 }
 
-// 🌟 完美时区转换引擎
 const formatDate = (str) => {
   if (!str) return '-'
-  
-  // 核心修复：把 SQLite 返回的 "2026-08-15 15:00:00" 
-  // 替换为标准 ISO 格式 "2026-08-15T15:00:00Z"
-  // 末尾的 'Z' 是最关键的魔法，它告诉浏览器：“这是国际零时区时间！”
-  // 浏览器接到后，会自动为你加上 8 小时，变成完美的北京时间！
   let cleanStr = str;
   if (!str.includes('Z') && !str.includes('T')) {
     cleanStr = str.replace(' ', 'T') + 'Z';
   }
-
   return new Date(cleanStr).toLocaleString('zh-CN', {
-    month: '2-digit', 
-    day: '2-digit', 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    second: '2-digit',
-    hour12: false // 强制 24 小时制，看着更专业
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
   })
 }
 </script>
@@ -186,17 +165,26 @@ const formatDate = (str) => {
 .data-card { background-color: var(--bg-card, #FFFFFF); border-radius: 16px; padding: 32px; border: 1px solid var(--border-light, #F1F5F9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
 .card-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .card-title { font-size: 18px; font-weight: 800; color: var(--text-heading, #1E293B); margin: 0; }
-.btn-refresh { background: var(--bg-hover); border: 1px solid var(--border-main); color: var(--text-muted); padding: 6px 16px; border-radius: 100px; font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.2s; }
-.btn-refresh:hover { color: var(--color-admin-primary, #14B8A6); border-color: var(--color-admin-primary, #14B8A6); }
+
+/* 🌟 按钮组与红色危险清空按钮样式 */
+.header-btn-group { display: flex; gap: 10px; align-items: center; }
+.btn-action { border: 1px solid var(--border-main); padding: 6px 16px; border-radius: 100px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; }
+
+.btn-refresh { background: var(--bg-hover); color: var(--text-muted); }
+.btn-refresh:hover:not(:disabled) { color: var(--color-admin-primary, #14B8A6); border-color: var(--color-admin-primary, #14B8A6); transform: translateY(-1px); }
+
+.btn-clear { background: rgba(244, 63, 94, 0.05); color: #f43f5e; border-color: rgba(244, 63, 94, 0.2); }
+.btn-clear:hover:not(:disabled) { background: #f43f5e; color: #ffffff; border-color: #f43f5e; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(244, 63, 94, 0.25); }
+.btn-action:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
 .table-container { width: 100%; }
-.table-header { display: grid; grid-template-columns: 0.6fr 1.5fr 1fr 2.5fr 1.5fr 1.5fr; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); font-size: 12px; font-weight: 800; color: var(--text-light); }
-.table-row { display: grid; grid-template-columns: 0.6fr 1.5fr 1fr 2.5fr 1.5fr 1.5fr; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--bg-hover); transition: background-color 0.2s; }
+.table-header { display: grid; grid-template-columns: 0.6fr 1.5fr 1.2fr 2.3fr 1.5fr 1.5fr; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); font-size: 12px; font-weight: 800; color: var(--text-light); }
+.table-row { display: grid; grid-template-columns: 0.6fr 1.5fr 1.2fr 2.3fr 1.5fr 1.5fr; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--bg-hover); transition: background-color 0.2s; }
 .table-row:hover { background-color: var(--bg-hover); }
 
 .id-text { font-size: 13px; font-weight: 800; color: var(--text-light); }
 .ip-code { font-size: 13px; font-weight: 800; color: var(--color-admin-primary, #14B8A6); font-family: monospace; }
-.location-text { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+.location-text { font-size: 13px; color: var(--text-muted); font-weight: 700; }
 .path-pill code { background: var(--bg-hover); color: var(--text-heading); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid var(--border-light); }
 .device-text { font-size: 12px; color: var(--text-muted); font-weight: 600; }
 .date-text { font-size: 12px; color: var(--text-muted); font-weight: 600; }

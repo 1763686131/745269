@@ -343,6 +343,18 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  // 🌟 17.5 管理员清空访问日志
+  const clearAccessLogs = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/analytics/logs`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('清空日志失败')
+      return await res.json()
+    } catch (error) {
+      console.error('清空日志失败:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
   // 🌟 18. 后台登录校验与验证码触发
   const adminLogin = async (username, password) => {
     try {
@@ -384,6 +396,47 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  
+// ====== 20 IP 定位功能 ======
+const ipLocationMap = ref({})
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const parseIps = async (ipArray) => {
+  // 1. 去重并过滤掉空数据
+  const uniqueIps = [...new Set(ipArray.filter(Boolean))];
+  
+  for (const ip of uniqueIps) {
+    // 2. 核心：如果这个 IP 之前已经查过了，直接跳过！极速秒开！
+    if (ipLocationMap.value[ip]) continue;
+
+    // 3. 拦截本地局域网 IP
+    if (ip === 'unknown_ip' || ip === '127.0.0.1' || ip.startsWith('192.168') || ip.startsWith('172.')) {
+      ipLocationMap.value[ip] = '局域网 / 本地';
+      continue;
+    }
+    
+    // 4. 发起 API 请求
+    try {
+      const response = await fetch(`https://ipwho.is/${ip}?lang=zh-CN`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const prov = data.region || '';
+        const city = data.city || '';
+        const isp = data.connection?.isp ? ` (${data.connection.isp})` : '';
+        ipLocationMap.value[ip] = prov === city ? `${city}${isp}` : `${prov} ${city}${isp}`;
+      } else {
+        ipLocationMap.value[ip] = '解析受限';
+      }
+    } catch (error) {
+      ipLocationMap.value[ip] = '定位超时';
+    }
+
+    // 5. 每次查完歇 300 毫秒，完美绕过免费 API 接口的防刷拦截
+    await sleep(300);
+  }
+}
+
   const saveTags = async (tagsArray) => {
     try {
       await fetch(`${API_BASE_URL}/api/tags`, {
@@ -423,6 +476,9 @@ export const useGameStore = defineStore('game', () => {
     fetchAccessLogs,
     isAdminLoggedIn,
     adminLogin,
-    adminLogout
+    adminLogout,   //
+    clearAccessLogs, // 新增清空访问日志方法
+    ipLocationMap,  // 新增 IP 位置映射
+    parseIps      // 新增 IP 定位方法
   }
 })

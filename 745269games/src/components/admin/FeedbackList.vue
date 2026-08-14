@@ -31,14 +31,16 @@
           <div class="col-id id-text">#{{ item.id }}</div>
           <div class="col-game game-name-text">
             <strong>{{ item.game_name }}</strong>
-            <span class="game-id-tag">(ID: {{ item.game_id }})</span>
+            <span class="game-id-tag">(ID: {{ item.game_id || '通用' }})</span>
           </div>
           <div class="col-content content-box">{{ item.content }}</div>
           <div class="col-contact contact-text">{{ item.contact_info || '未留下' }}</div>
+          
           <div class="col-ip ip-box">
             <span class="ip-code">{{ item.user_ip || '127.0.0.1' }}</span>
-            <span class="ip-location">中国</span>
+            <span class="ip-location">{{ gameStore.ipLocationMap[item.user_ip] || '正在定位...' }}</span>
           </div>
+          
           <div class="col-time date-text">{{ formatDate(item.created_at) }}</div>
           
           <div class="col-status">
@@ -76,12 +78,19 @@ const loadFeedbacks = async () => {
   isLoading.value = true
   feedbacks.value = await gameStore.fetchFeedbacks()
   isLoading.value = false
+
+  // 🌟 数据加载完毕后，只需一句话，把提取出来的 IP 数组丢给全局库去查！
+  if (feedbacks.value.length > 0) {
+    const ipArray = feedbacks.value.map(item => item.user_ip)
+    gameStore.parseIps(ipArray) 
+  }
 }
 
 onMounted(() => {
   loadFeedbacks()
 })
 
+// 🌟 新增切换反馈状态功能
 const handleToggleStatus = async (item) => {
   const newStatus = !item.is_handled
   const success = await gameStore.toggleFeedbackStatus(item.id, newStatus)
@@ -90,6 +99,7 @@ const handleToggleStatus = async (item) => {
   }
 }
 
+// 🌟 新增删除反馈功能
 const handleDelete = async (id) => {
   const success = await gameStore.deleteFeedback(id)
   if (success) {
@@ -97,26 +107,15 @@ const handleDelete = async (id) => {
   }
 }
 
-// 🌟 完美时区转换引擎
+// 🌟 统一的时间格式化函数
 const formatDate = (str) => {
   if (!str) return '-'
-  
-  // 核心修复：把 SQLite 返回的 "2026-08-15 15:00:00" 
-  // 替换为标准 ISO 格式 "2026-08-15T15:00:00Z"
-  // 末尾的 'Z' 是最关键的魔法，它告诉浏览器：“这是国际零时区时间！”
-  // 浏览器接到后，会自动为你加上 8 小时，变成完美的北京时间！
   let cleanStr = str;
   if (!str.includes('Z') && !str.includes('T')) {
     cleanStr = str.replace(' ', 'T') + 'Z';
   }
-
   return new Date(cleanStr).toLocaleString('zh-CN', {
-    month: '2-digit', 
-    day: '2-digit', 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    second: '2-digit',
-    hour12: false // 强制 24 小时制，看着更专业
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
   })
 }
 </script>

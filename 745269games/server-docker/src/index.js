@@ -34,25 +34,30 @@ if (fs.existsSync(schemaPath)) {
 
 // ================= 2.5 流量监控雷达 (全局记录访客日志) =================
 app.use((req, res, next) => {
-  // 只记录前台用户的访问 (排除静态文件、后台 API 等无用数据)
   if (req.method === 'GET' && !req.path.includes('.') && !req.path.startsWith('/api/')) {
-    
-    // 1. 抓取真实 IP
     const clientIP = req.headers['cf-connecting-ip'] || 
                      (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : '') || 
                      req.ip || "unknown_ip";
                      
-    // 2. 抓取访问路径和设备信息
     const path = req.path;
     const userAgent = req.headers['user-agent'] || 'Unknown Device';
     const referer = req.headers['referer'] || '';
 
-    // 3. 异步写入数据库 (不阻塞用户的正常访问速度)
     try {
+      // 1. 记录最新的一条访客轨迹
       db.prepare(`
         INSERT INTO site_logs (user_ip, path, user_agent, referer) 
         VALUES (?, ?, ?, ?)
       `).run(clientIP, path, userAgent, referer);
+
+      // 🌟 2. 核心补丁：无情死神清道夫！
+      // 每次有新访客进来，顺手把 30 天前（或者也可以设为 7 天前）的旧日志物理删除！
+      // 这样这个表永远只有最近一个月的鲜活数据，数据库永远保持极速状态！
+      db.prepare(`
+        DELETE FROM site_logs 
+        WHERE created_at < datetime('now', '-30 days')
+      `).run();
+
     } catch (error) {
       console.error("记录流量日志失败:", error.message);
     }
@@ -405,6 +410,18 @@ app.get('/api/analytics/logs', (req, res) => {
     res.json(results);
   } catch (err) {
     res.json([]);
+  }
+});
+
+// 17.5 管理员手动一键清空所有访问日志
+app.delete('/api/analytics/logs', (req, res) => {
+  try {
+    // 物理清空 site_logs 表
+    db.prepare("DELETE FROM site_logs").run();
+    res.json({ success: true, message: "访问日志已成功清空！" });
+  } catch (err) {
+    console.error("清空访问日志失败:", err.message);
+    res.status(500).json({ success: false, error: "清空失败: " + err.message });
   }
 });
 
