@@ -2,11 +2,22 @@
   <div class="game-detail-container" v-if="game">
     
     <header class="detail-top-header">
-      <button class="back-btn" @click="goBack"><span class="back-arrow">⬅️</span> 返回列表</button>
+      <div class="header-left-actions">
+        <button class="nav-action-btn back-list-btn" @click="goBack" title="返回上页列表">
+          <span class="btn-icon">⬅️</span>
+          <span>返回列表</span>
+        </button>
+        <button class="nav-action-btn go-home-btn" @click="$router.push('/')" title="返回网站首页">
+          <span class="btn-icon">🏠</span>
+          <span>返回首页</span>
+        </button>
+      </div>
+
       <div class="center-title-box">
         <h1 class="main-title-zh">{{ game.title?.zh_CN || '未命名游戏' }}</h1>
         <p class="sub-title-en" v-if="game.title?.en_US">{{ game.title?.en_US }}</p>
       </div>
+
       <div class="header-placeholder"></div>
     </header>
 
@@ -131,7 +142,6 @@
         <div class="feedback-modal-container">
           <header class="modal-header">
             <h3>📝 提交问题反馈</h3>
-            <!-- 安全验证 -->
             <div class="cf-turnstile" data-sitekey="0x4AAAAAAAiF-A9hD0fS1rB2"></div>
             <button class="close-btn" @click="showFeedbackModal = false">✕</button>
           </header>
@@ -210,7 +220,6 @@ const submitFeedbackHandler = async () => {
     feedbackForm.value.contact = ''
     feedbackForm.value.content = ''
   } else {
-    // 这里会精准拦截出“一天只能提交一次”的后台警告
     alert(`❌ ${res.error}`)
   }
 }
@@ -352,19 +361,68 @@ const formatDate = (str) => {
 @import '@/assets/styles/theme.css';
 
 .game-detail-container { max-width: 1400px; margin: 0 auto; padding: 30px 20px 80px 20px; color: var(--text-main); }
+
+/* 🌟 顶部 Header 美化升级 */
 .detail-top-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--border-main); padding-bottom: 20px; margin-bottom: 30px; }
-.back-btn { background: var(--bg-card); border: 1px solid var(--border-main); color: var(--text-muted); padding: 8px 18px; border-radius: 20px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; }
-.back-btn:hover { color: var(--color-primary); border-color: var(--color-primary); transform: translateX(-3px); }
+
+/* 按钮容器 */
+.header-left-actions { display: flex; align-items: center; gap: 12px; }
+
+/* 基础通用动作按钮 */
+.nav-action-btn { 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 8px; 
+  padding: 10px 20px; 
+  border-radius: 100px; 
+  font-size: 15px; 
+  font-weight: 800; 
+  cursor: pointer; 
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); 
+  border: 1px solid var(--border-main); 
+  outline: none;
+}
+
+.btn-icon { font-size: 16px; transition: transform 0.2s ease; }
+
+/* 返回列表按钮样式 */
+.back-list-btn { 
+  background: var(--bg-card); 
+  color: var(--text-heading); 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); 
+}
+.back-list-btn:hover { 
+  border-color: var(--border-dark); 
+  color: var(--color-primary); 
+  transform: translateY(-2px); 
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); 
+}
+.back-list-btn:hover .btn-icon { transform: translateX(-3px); }
+
+/* 返回首页高亮按钮样式 */
+.go-home-btn { 
+  background: var(--color-primary, #2563eb); 
+  color: #ffffff; 
+  border-color: var(--color-primary, #2563eb); 
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25); 
+}
+.go-home-btn:hover { 
+  filter: brightness(1.1); 
+  transform: translateY(-2px) scale(1.03); 
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35); 
+}
+.go-home-btn:hover .btn-icon { transform: scale(1.15) rotate(-10deg); }
+
 .center-title-box { text-align: center; }
 .main-title-zh { font-size: 32px; font-weight: 900; margin: 0; color: var(--text-heading); letter-spacing: -0.5px; }
 .sub-title-en { margin: 4px 0 0 0; font-size: 14px; color: var(--text-light); font-weight: 600; }
-.header-placeholder { width: 100px; }
+.header-placeholder { width: 230px; } /* 保持两侧对称，确保标题绝对居中 */
 
 .middle-main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 30px; margin-bottom: 30px; }
 .left-info-column { display: flex; flex-direction: column; gap: 20px; }
 
 .poster-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-.poster-img { width: 100%; aspect-ratio: 0 / 4; object-fit: cover; border-radius: 12px; display: block; }
+.poster-img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; display: block; }
 .poster-placeholder { width: 100%; aspect-ratio: 3 / 4; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .poster-badge-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .mini-badge { background: var(--bg-hover); color: var(--text-muted); font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main); }
@@ -442,11 +500,11 @@ const formatDate = (str) => {
 .forum-btn { width: 100%; background: var(--bg-hover); border: 2px dashed var(--border-dark); color: var(--text-heading); padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; }
 .forum-btn:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--bg-card); }
 
-/* 🌟 反馈按钮样式 */
+/* 反馈按钮样式 */
 .feedback-btn { width: 100%; background: transparent; border: 2px dashed #f43f5e; color: #f43f5e; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; margin-top: 12px; }
 .feedback-btn:hover { background: rgba(244, 63, 94, 0.05); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(244, 63, 94, 0.15); }
 
-/* 🌟 反馈弹窗专属高级 CSS */
+/* 反馈弹窗 CSS */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
 .feedback-modal-container { background: var(--bg-card); width: 90%; max-width: 500px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); overflow: hidden; border: 1px solid var(--border-light); transform: scale(1); transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s; }
@@ -483,12 +541,13 @@ const formatDate = (str) => {
 @media (max-width: 768px) {
   .game-detail-container { padding: 16px 12px 60px 12px; }
   
-  .detail-top-header { flex-direction: column; gap: 12px; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; }
+  .detail-top-header { flex-direction: column; gap: 16px; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; }
+  .header-left-actions { width: 100%; justify-content: space-between; }
+  .nav-action-btn { flex: 1; justify-content: center; font-size: 13px; padding: 8px 12px; }
   .center-title-box { text-align: left; width: 100%; }
   .main-title-zh { font-size: 22px; }
   .sub-title-en { font-size: 12px; }
   .header-placeholder { display: none; }
-  .back-btn { font-size: 13px; padding: 6px 14px; }
 
   .middle-main-layout { grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
   .poster-card { padding: 12px; }
@@ -512,7 +571,6 @@ const formatDate = (str) => {
   .source-right { justify-content: flex-start; width: 100%; gap: 8px; }
   .action-btn, .download-link-btn { font-size: 12px; padding: 8px 12px; flex: 1; text-align: center; justify-content: center; }
 
-  /* 移动端弹窗适配 */
   .feedback-modal-container { width: 95%; }
   .feedback-modal-container .modal-header { padding: 16px; }
   .feedback-modal-container .modal-body { padding: 16px; }
