@@ -218,7 +218,7 @@
       <div class="footer-content">
         <p class="copyright">© 2026 745269.COM. All Rights Reserved.</p>
         <p class="disclaimer">
-          <strong>免责声明：</strong>本站所有游戏及相关资源均由网友程序自动抓取或网络收集而来，仅供学习、交流及宽带测试使用。
+          <strong>声明：</strong>本站所有游戏及相关资源均由网友程序自动抓取或网络收集而来，仅供学习、交流及宽带测试使用。
           本站不存储、不破解、不参与任何实质性资源制作。若侵犯了您的合法权益，请通过“游客反馈”联系站长，我们将第一时间处理并删除。
         </p>
       </div>

@@ -133,19 +133,7 @@ const currentCategory = computed(() => {
   return categoryMap[route.params.id] || { title: '全部游戏库', tags: '' }
 })
 
-const availableGenres = computed(() => {
-  const genres = new Set()
-  gameStore.allGames.forEach(game => {
-    if (game.metadata?.genres && Array.isArray(game.metadata.genres)) {
-      game.metadata.genres.forEach(g => {
-        const cleanTag = g.replace(/,|，/g, ' ').trim()
-        if (cleanTag) genres.add(cleanTag)
-      })
-    }
-  })
-  return ['全部', ...Array.from(genres)]
-})
-
+// === 支持平台（一级分类：永远从全部游戏里提取） ===
 const availablePlatforms = computed(() => {
   const platforms = new Set()
   gameStore.allGames.forEach(game => {
@@ -159,9 +147,42 @@ const availablePlatforms = computed(() => {
   return ['全部', ...Array.from(platforms)]
 })
 
+// === 🌟 核心修改：游戏玩法（二级分类：根据选中的一级平台动态提取） ===
+const availableGenres = computed(() => {
+  const genres = new Set()
+  
+  // 1. 先拿到所有要计算的游戏池
+  let gamesToExtract = gameStore.allGames
+  
+  // 2. 如果选中了具体的平台（不是全部），那就先过滤一波！
+  if (selectedPlatform.value !== '全部') {
+    gamesToExtract = gamesToExtract.filter(game => {
+      const pTags = game.metadata?.platforms || []
+      return pTags.some(tag => tag.toUpperCase().includes(selectedPlatform.value))
+    })
+  }
+
+  // 3. 从最终过滤好的游戏池里，提取出独属的玩法标签
+  gamesToExtract.forEach(game => {
+    if (game.metadata?.genres && Array.isArray(game.metadata.genres)) {
+      game.metadata.genres.forEach(g => {
+        const cleanTag = g.replace(/,|，/g, ' ').trim()
+        if (cleanTag) genres.add(cleanTag)
+      })
+    }
+  })
+  return ['全部', ...Array.from(genres)]
+})
+
 const setGenre = (genre) => { selectedGenre.value = genre }
 const setPlatform = (plat) => { selectedPlatform.value = plat }
 const setSortOrder = (order) => { sortOrder.value = order }
+
+// === 🌟 核心细节：监听一级平台变化，自动重置二级玩法 ===
+watch(selectedPlatform, (newVal) => {
+  // 当平台发生切换时，把玩法重置回“全部”，防止筛选出死数据
+  selectedGenre.value = '全部'
+})
 
 const fetchCurrentCategoryGames = () => {
   gameStore.fetchGames(false, currentCategory.value.tags)
@@ -237,7 +258,6 @@ const displayedGames = computed(() => {
 
 const totalCount = computed(() => gameStore.allGames.length)
 </script>
-
 <style scoped>
 @import '@/assets/styles/theme.css'; 
 
