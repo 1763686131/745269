@@ -11,6 +11,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 1233;
 
+// 告诉 Express 信任前方的代理层(Docker网桥/Cloudflare)
+// 加上这句，req.ip 才能穿透 172.20.0.1 拿到真实 IP！
+app.set('trust proxy', true);
 // 解析 JSON 格式的请求体
 app.use(express.json());
 
@@ -283,26 +286,44 @@ app.post('/api/games/:id/interact', (req, res) => {
   res.json({ success: true });
 });
 
-// 9. 用户提交报错与反馈
+// 9. 用户提交报错与反馈 (最终优雅版)
 app.post('/api/feedback', (req, res) => {
-  const body = req.body;
-  const clientIP = req.ip || req.headers['x-forwarded-for'] || "unknown_ip";
-  
-  const recentFeedbacks = db.prepare(`
-    SELECT id FROM feedbacks 
-    WHERE user_ip = ? AND created_at > datetime('now', '-1 day')
-  `).all(clientIP);
+  try {
+    const body = req.body;
+    const clientIP = req.headers['cf-connecting-ip'] || 
+                     (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : '') || 
+                     req.ip || "unknown_ip";
+    
+    // 120 秒防刷
+    const recentFeedbacks = db.prepare(`
+      SELECT id FROM feedbacks 
+      WHERE user_ip = ? AND created_at > datetime('now', '-120 seconds')
+    `).all(clientIP);
 
-  if (recentFeedbacks && recentFeedbacks.length > 0) {
-    return res.status(429).json({ success: false, error: "为防止恶意提交，同一IP每天仅限反馈一次，请您明天再来哦！感谢支持。" });
+    if (recentFeedbacks && recentFeedbacks.length > 0) {
+      return res.status(429).json({ success: false, error: "提交太频繁啦，请等待 2 分钟后再试！" });
+    }
+
+    // 🌟 既然数据库允许为空了，碰到首页传来的 0 或 ''，我们直接转成 null 塞进去！
+    const finalGameId = (body.game_id === 0 || body.game_id === '0' || body.game_id === '') ? null : body.game_id;
+
+    db.prepare(`
+      INSERT INTO feedbacks (game_id, game_name, contact_info, content, user_ip)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      finalGameId, 
+      body.game_name || '【未指定游戏】通用反馈', 
+      body.contact_info || '', 
+      body.content || '', 
+      clientIP
+    );
+    
+    res.json({ success: true, message: "反馈提交成功！" });
+
+  } catch (error) {
+    console.error("❌ 数据库写入崩溃:", error.message);
+    res.status(500).json({ success: false, error: "数据库报错: " + error.message });
   }
-
-  db.prepare(`
-    INSERT INTO feedbacks (game_id, game_name, contact_info, content, user_ip)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(body.game_id || '', body.game_name || '', body.contact_info || '', body.content || '', clientIP);
-  
-  res.json({ success: true, message: "反馈提交成功！" });
 });
 
 // 10. 获取所有反馈列表

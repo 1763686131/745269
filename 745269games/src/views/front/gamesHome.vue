@@ -7,7 +7,6 @@
           <div class="site-logo">
             <span class="text-dark">745269</span><span class="text-blue">.com</span>
           </div>
-          <!-- 分类导航 -->
           <nav class="category-nav hide-on-mobile">
             <a href="#" class="nav-item" @click.prevent="goToColumn('single')">
               <svg class="cute-icon color-single" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -44,44 +43,20 @@
         </div>
 
         <div class="navbar-right">
-
-          <!-- 主题切换按钮 -->
-          <button 
-            @click="toggleTheme" 
-            class="theme-toggle-btn"
-            title="切换主题"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="18" 
-              height="18" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              stroke-width="2.5" 
-              stroke-linecap="round" 
-              stroke-linejoin="round"
-            >
+          <button @click="toggleTheme" class="theme-toggle-btn" title="切换主题">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20.38 3.46 16 2a8.5 8.5 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
             </svg>
           </button>
-
           <button class="lang-toggle-btn" @click="toggleLang">
             {{ currentLang === 'zh' ? 'EN' : '中文' }}
           </button>
-          <!-- <nav class="desktop-navigation hide-on-mobile">
-            <button class="platform-btn" @click="handlePlatformClick('SWITCH')">SWITCH</button>
-            <button class="platform-btn" @click="handlePlatformClick('PC')">PC</button>
-            <button class="platform-btn" @click="handlePlatformClick('PS4')">PS4</button>
-          </nav> -->
           <button class="mobile-hamburger-trigger" :class="{ 'menu-is-active': isMobileMenuOpen }" @click="isMobileMenuOpen = !isMobileMenuOpen">
             <span class="bar-line"></span><span class="bar-line"></span><span class="bar-line"></span>
           </button>
         </div>
       </div>
 
-
-      <!-- 移动端下拉菜单 -->
       <transition name="menu-slide">
         <div v-if="isMobileMenuOpen" class="mobile-dropdown-menu">
           <div class="mobile-categories">
@@ -92,11 +67,6 @@
             <a href="#" class="mobile-nav-item" @click.prevent="goToColumn('goty')">{{ t.goty }}</a>
           </div>
           <div class="mobile-divider"></div>
-          <!-- <div class="mobile-platforms">
-            <button class="mobile-menu-item" @click="handlePlatformClick('SWITCH'); isMobileMenuOpen = false">SWITCH</button>
-            <button class="mobile-menu-item" @click="handlePlatformClick('PC'); isMobileMenuOpen = false">PC</button>
-            <button class="mobile-menu-item" @click="handlePlatformClick('PS4'); isMobileMenuOpen = false">PS4</button>
-          </div> -->
         </div>
       </transition>
     </header>
@@ -143,6 +113,11 @@
             <p class="result-text">
               {{ t.notFound1 }}<span class="highlight">{{ lastSearchedKeyword }}</span>{{ t.notFound2 }}
             </p>
+            <p class="result-text" style="margin-top: 12px; font-size: 14px;">
+              👉 <a href="#" class="highlight text-blue" style="cursor: pointer; text-decoration: underline;" @click.prevent="showFeedbackModal = true">
+                {{ t.requestResource }}
+              </a>
+            </p>
           </div>
 
           <div v-else class="success-state">
@@ -151,65 +126,37 @@
             </p>
             
             <div class="game-grid-layout">
-              <article 
-                class="game-card" v-for="game in searchResults" :key="game.id" @click="router.push(`/game/${game.id}`)">
-
-
+              <article class="game-card" v-for="game in searchResults" :key="game.id" @click="router.push(`/game/${game.id}`)">
                 <div class="card-image-wrapper">
                   <img v-if="game.media?.cover" :src="game.media.cover" alt="cover" class="actual-cover-image">
-                  <div v-else class="image-placeholder">
-                    <span class="placeholder-text">暂无封面</span>
-                  </div>
+                  <div v-else class="image-placeholder"><span class="placeholder-text">暂无封面</span></div>
                 </div>
                 
                 <div class="card-content">
-                  
                   <div class="title-row">
                     <h2 class="game-title">{{ game.title?.zh_CN || game.title?.en_US || '未命名游戏' }}</h2>
                     <span class="hardcode-rating" v-if="game.metadata?.rating">⭐ {{ game.metadata.rating }}</span>
                   </div>
-
                   <p class="game-desc">{{ game.description || '暂无简介，尽情探索吧！' }}</p>
                   
                   <div class="card-tags-container">
-                    
                     <div class="tag-row" v-if="getPlatformGroups(game).length > 0">
                       <template v-for="group in getPlatformGroups(game)" :key="group.platform">
                         <span class="cute-tag-pill bg-blue">{{ group.platform }}</span>
                         <span v-for="ver in group.versions" :key="ver" class="cute-tag-pill bg-purple">{{ ver }}</span>
                       </template>
                     </div>
-                    <!--  -->
                     <div class="tag-row" v-if="game.aliases && game.aliases.length > 0">
-                      <span 
-                        v-for="lang in game.aliases" 
-                        :key="'l-'+lang" 
-                        class="cute-tag-pill bg-green"
-                      >
-                        {{ lang.replace(/,|，/g, ' ') }}
-                      </span>
+                      <span v-for="lang in game.aliases" :key="'l-'+lang" class="cute-tag-pill bg-green">{{ lang.replace(/,|，/g, ' ') }}</span>
                     </div>
-
                     <div class="tag-row" v-if="game.metadata?.genres && game.metadata.genres.length > 0">
-                      <span 
-                        v-for="genre in game.metadata.genres" 
-                        :key="'g-'+genre" 
-                        class="cute-tag-pill bg-pink"
-                      >
-                        {{ genre.replace(/,|，/g, ' ') }}
-                      </span>
+                      <span v-for="genre in game.metadata.genres" :key="'g-'+genre" class="cute-tag-pill bg-pink">{{ genre.replace(/,|，/g, ' ') }}</span>
                     </div>
-
                   </div>
-
                 </div>
-
-
-
               </article>
             </div>
           </div>
-
         </div>
       </div>
     </main>
@@ -224,6 +171,16 @@
       </div>
     </footer>
 
+    <FeedbackModal 
+      v-if="showFeedbackModal" 
+      title="✨ 跪求游戏资源"
+      hint="没有搜到您想玩的游戏？留个言，站长火速帮你搬运！"
+      :placeholder="`比如：能不能上个 ${lastSearchedKeyword || '黑神话悟空'} 的整合包呀？`"
+      :gameId="0" 
+      :gameName="`【资源求助】用户搜索词：${lastSearchedKeyword}`" 
+      @close="showFeedbackModal = false" 
+    />
+
   </div>
 </template>
 
@@ -231,24 +188,28 @@
 import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import { useRouter } from 'vue-router'
+// 🌟 1. 导入你的反馈公共组件
+import FeedbackModal from '@/components/common/FeedbackModal.vue'
 
 const router = useRouter()
 
-// ---------- 栏目跳转 ----------
+// 🌟 2. 控制弹窗显示的响应式变量
+const showFeedbackModal = ref(false)
+
 const goToColumn = (categoryId) => {
-  isMobileMenuOpen.value = false // 如果是手机端，点完自动关掉菜单
-  router.push(`/Column/${categoryId}`) // 跳转并带着栏目标识
+  isMobileMenuOpen.value = false 
+  router.push(`/Column/${categoryId}`) 
 }
-// ---------- 主题切换核心逻辑 ----------
+
 const isDark = ref(false)
 
 const toggleTheme = () => {
   isDark.value = !isDark.value
   if (isDark.value) {
-    document.documentElement.classList.add('dark') // 激活 theme.css 里的 html.dark
-    localStorage.setItem('745269_theme', 'dark')   // 存入本地浏览器
+    document.documentElement.classList.add('dark') 
+    localStorage.setItem('745269_theme', 'dark')   
   } else {
-    document.documentElement.classList.remove('dark') // 变回白天
+    document.documentElement.classList.remove('dark') 
     localStorage.setItem('745269_theme', 'light')     
   }
 }
@@ -267,7 +228,6 @@ let cooldownTimer = null
 
 onMounted(() => {
   const savedTheme = localStorage.getItem('745269_theme')
-  // 如果之前存过 dark，或者玩家系统本身就是深色模式
   if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     isDark.value = true
     document.documentElement.classList.add('dark')
@@ -314,62 +274,34 @@ const executeSearch = async () => {
   localStorage.setItem('frontSearchCooldownUntil', until.toString())
   startCooldown(10)
 
-  // 请求服务端数据
   const results = await gameStore.fetchSearchFromServer(searchQuery.value)
   
   isSearching.value = false
   searchResults.value = results
-
-  if (results.length > 0) {
-    console.log('%c👉 数据库匹配成功，完整源数据如下：', 'color: #10b981; font-weight: bold;', results)
-  } else {
-    console.log('%c⚠️ 未找到任何匹配数据。', 'color: #ef4444; font-weight: bold;')
-  }
 }
 
-// 🌟 核心升级引擎：精确将平台和它自己的版本号绑定在一起
 const getPlatformGroups = (game) => {
   const groups = []
   const downloads = game.downloads || []
   const platforms = game.metadata?.platforms || []
-
-  // 建立映射表
   const platMap = new Map()
 
-  // 1. 打底操作：确保在后台选了平台但没写网盘的，也能展示平台蓝标
-  platforms.forEach(p => {
-    platMap.set(p.toUpperCase(), { name: p, versions: new Set() })
-  })
+  platforms.forEach(p => { platMap.set(p.toUpperCase(), { name: p, versions: new Set() }) })
 
-  // 2. 遍历网盘下载源，精准提取平台对应的版本号，自动干掉逗号
   downloads.forEach(dl => {
     if (!dl.platform) return
     const pKey = dl.platform.toUpperCase()
-    
-    // 兼容脏数据：网盘里填了某个平台，但分类没选，我们依然帮它显示
-    if (!platMap.has(pKey)) {
-      platMap.set(pKey, { name: dl.platform.toUpperCase(), versions: new Set() })
-    }
-    
-    if (dl.edition) {
-      platMap.get(pKey).versions.add(dl.edition.replace(/,|，/g, ' '))
-    }
+    if (!platMap.has(pKey)) platMap.set(pKey, { name: dl.platform.toUpperCase(), versions: new Set() })
+    if (dl.edition) platMap.get(pKey).versions.add(dl.edition.replace(/,|，/g, ' '))
   })
 
-  // 3. 转成渲染专用的数组
-  platMap.forEach(val => {
-    groups.push({
-      platform: val.name,
-      versions: Array.from(val.versions) // Array.from + Set 原生自动去重！
-    })
-  })
-
+  platMap.forEach(val => { groups.push({ platform: val.name, versions: Array.from(val.versions) }) })
   return groups
 }
 
-
 const currentLang = ref('zh') 
 
+// 🌟 3. 在多语言配置中加入了"求资源"的文案
 const i18n = {
   zh: {
     single: '大型单人',
@@ -383,7 +315,8 @@ const i18n = {
     notFound1: '未找到关于 “',
     notFound2: '” 的相关信息。',
     found1: '成功为您检索到 ',
-    found2: ' 款相关游戏：'
+    found2: ' 款相关游戏：',
+    requestResource: '没找到？点击这里向站长求资源'
   },
   en: {
     single: 'Single Player',
@@ -397,7 +330,8 @@ const i18n = {
     notFound1: 'No info found for "',
     notFound2: '".',
     found1: 'Successfully retrieved ',
-    found2: ' related games:'
+    found2: ' related games:',
+    requestResource: 'Not found? Click here to request resources'
   }
 }
 
@@ -405,10 +339,6 @@ const t = computed(() => i18n[currentLang.value])
 
 const toggleLang = () => {
   currentLang.value = currentLang.value === 'zh' ? 'en' : 'zh'
-}
-
-const handlePlatformClick = (platform) => {
-  console.log(`已选择平台: ${platform}`)
 }
 </script>
 

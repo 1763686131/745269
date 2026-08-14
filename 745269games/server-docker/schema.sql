@@ -62,7 +62,10 @@ CREATE TABLE IF NOT EXISTS game_tags (
 -- =========================================================
 CREATE TABLE IF NOT EXISTS feedbacks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  game_id INTEGER NOT NULL,     
+  
+  -- 🌟 2. 核心修改：去掉了 NOT NULL！允许它存入 null (代表首页通用反馈)
+  game_id INTEGER,     
+  
   game_name TEXT NOT NULL,      
   contact_info TEXT,            
   content TEXT NOT NULL,        
@@ -70,7 +73,8 @@ CREATE TABLE IF NOT EXISTS feedbacks (
   is_handled BOOLEAN DEFAULT 0, 
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   
-  -- 🌟 级联删除优化：当 games 表里对应的游戏被删除时，这条反馈记录自动被清除，绝不留死数据！
+  -- 级联删除依然保留，如果是绑定了游戏的反馈，游戏删了反馈也删。
+  -- 如果是 NULL 的通用反馈，这行规则自动忽略，完美！
   FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
 );
 
