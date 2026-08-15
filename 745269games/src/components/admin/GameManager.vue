@@ -95,6 +95,10 @@
     
     <!-- 游戏表单弹窗 -->
     <GameFormModal :visible="isModalVisible" :gameData="currentEditData" @update:visible="isModalVisible = $event" @submit="handleSave"/>
+    
+    <!-- 🌟 修复：使用正常的 prop + update 事件绑定，以兼容 eslint 的 v-model 规则 -->
+    <ConfirmModal ref="confirmModalRef" :visible="showConfirm" :title="confirmConfig.title" :message="confirmConfig.message" :type="confirmConfig.type" @update:visible="showConfirm = $event" @confirm="executeToggle"
+    />
   </div>
 </template>
 
@@ -102,12 +106,27 @@
 import { ref, computed } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import GameFormModal from '@/components/admin/GameFormModal.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
+
 
 // 接收父框架传来的搜索数据
 const props = defineProps({
   activeSearchKeyword: { type: String, default: '' },
   adminSearchResults: { type: Array, default: () => [] }
 })
+
+// 🌟 修复：补上了刚才漏掉的弹窗控制开关！
+const showConfirm = ref(false)
+
+const confirmModalRef = ref(null)
+const confirmConfig = ref({
+  title: '',
+  message: '',
+  type: 'primary',
+  idToProcess: null,     // 记录是哪个数据被点击了
+  statusToProcess: null  // 记录是要上架还是下架
+})
+
 
 const gameStore = useGameStore()
 const isModalVisible = ref(false)
@@ -170,16 +189,31 @@ const getVersionedDisks = (gameId) => {
   return result
 }
 
-// 🌟 切换上下架状态逻辑
-const handleToggleStatus = async (id, currentStatus) => {
+// 🌟 2. 覆盖你原来的：现在点击按钮，只负责“唤起弹窗”并传入数据
+const handleToggleStatus = (id, currentStatus) => {
   const newStatus = currentStatus ? 0 : 1; 
   const actionName = newStatus === 1 ? '上架' : '下架';
   
-  if (confirm(`确定要将该游戏【${actionName}】吗？`)) {
-    const success = await gameStore.toggleGameStatus(id, newStatus);
-    if (success) {
-      alert(`操作成功，游戏已${actionName}！`);
-    }
+  confirmConfig.value = {
+    title: `${actionName}确认`,
+    message: `确定要将该游戏【${actionName}】吗？`,
+    type: newStatus === 1 ? 'primary' : 'danger', // 上架用蓝绿主题，下架用红色警告主题
+    idToProcess: id,
+    statusToProcess: newStatus
+  }
+  showConfirm.value = true // 弹出组件！
+}
+
+// 🌟 3. 新增：当在弹窗里点击“确定”时，真正执行后端的请求
+const executeToggle = async () => {
+  const { idToProcess, statusToProcess } = confirmConfig.value;
+  const actionName = statusToProcess === 1 ? '上架' : '下架';
+
+  const success = await gameStore.toggleGameStatus(idToProcess, statusToProcess);
+  if (success) {
+    // 🌟 直接调用组件里的 showToast 方法！
+    // 第一个参数是文字，第二个参数是颜色风格 ('success' 或 'danger')
+    confirmModalRef.value.showToast(`操作成功，该游戏已${actionName}！`, statusToProcess === 1 ? 'success' : 'danger');
   }
 }
 
