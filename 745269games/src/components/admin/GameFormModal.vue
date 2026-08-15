@@ -256,7 +256,8 @@
       </div>
         <!--弹窗子组件  -->
       <ConfirmModal 
-    v-model:visible="showSubmitConfirm" 
+    :visible="showSubmitConfirm" 
+    @update:visible="showSubmitConfirm = $event"
     :title="confirmConfig.title" 
     :message="confirmConfig.message" 
     :type="confirmConfig.type" 

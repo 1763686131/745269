@@ -166,7 +166,7 @@ const handleSave = async (formData) => {
   if (success) {
     // 🌟 无感顶部 Toast 提示成功，彻底告别浏览器原生 alert！
     confirmModalRef.value?.showToast(
-      isEditMode ? '✨ 游戏配置已成功修改并同步！' : '🚀 新游戏已成功入库并发布！', 
+      isEditMode ? '游戏配置已成功修改并同步！' : '新游戏已成功入库并发布！', 
       'success'
     )
   }
