@@ -90,8 +90,14 @@ export const useGameStore = defineStore('game', () => {
       
       const fetchLimit = 20; 
       let url = `${API_BASE_URL}/api/games?limit=${fetchLimit}&offset=${currentOffset.value}`
+      
       if (tags) {
         url += `&tags=${encodeURIComponent(tags)}`
+      }
+
+      // 🌟 核心对接：如果是管理员登录状态，自动在请求屁股后面加上暗号！
+      if (isAdminLoggedIn.value) {
+        url += `&is_admin=true`
       }
 
       const response = await fetch(url)
@@ -189,7 +195,14 @@ export const useGameStore = defineStore('game', () => {
   // 5. 真实服务端搜索 API 请求
   const fetchSearchFromServer = async (keyword) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/games/search?q=${encodeURIComponent(keyword)}`)
+      let url = `${API_BASE_URL}/api/games/search?q=${encodeURIComponent(keyword)}`
+      
+      // 🌟 核心对接：搜索接口同样自动带上管理员暗号！
+      if (isAdminLoggedIn.value) {
+        url += `&is_admin=true`
+      }
+
+      const response = await fetch(url)
       if (!response.ok) {
         const errText = await response.text()
         throw new Error(`[HTTP 状态码: ${response.status}] 详情: ${errText}`)

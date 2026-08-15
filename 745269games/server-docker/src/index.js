@@ -75,15 +75,25 @@ app.get('/api/games', (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const offset = parseInt(req.query.offset) || 0;
     const tags = req.query.tags; 
+    
+    // 🌟 核心暗号：判断是不是后台发来的请求
+    const isAdmin = req.query.is_admin === 'true';
 
-    let sql = "SELECT * FROM games";
+    // 💡 技巧：先加上 WHERE 1=1，方便后面无脑拼接 AND
+    let sql = "SELECT * FROM games WHERE 1=1";
     const bindParams = [];
+
+    // 🌟 核心防御：如果不是后台请求，强行过滤掉已下架(is_active=0)的游戏！
+    if (!isAdmin) {
+      sql += " AND is_active = 1";
+    }
 
     if (tags) {
       const tagArray = tags.split(',').filter(Boolean);
       if (tagArray.length > 0) {
         const conditions = tagArray.map(() => `(metadata_json LIKE ? OR aliases_json LIKE ?)`);
-        sql += " WHERE " + conditions.join(" OR ");
+        // 注意这里一定要加括号，防止 OR 条件破坏前面的 AND is_active = 1
+        sql += " AND (" + conditions.join(" OR ") + ")";
         tagArray.forEach(tag => {
           bindParams.push(`%${tag}%`, `%${tag}%`);
         });
@@ -119,12 +129,20 @@ app.get('/api/games', (req, res) => {
 app.get('/api/games/search', (req, res) => {
   const keyword = req.query.q || "";
   const searchTerm = `%${keyword}%`;
+  // 🌟 同样接收暗号
+  const isAdmin = req.query.is_admin === 'true';
 
-  const results = db.prepare(`
-    SELECT * FROM games 
-    WHERE title_zh LIKE ? OR title_en LIKE ? 
-    ORDER BY id DESC
-  `).all(searchTerm, searchTerm);
+  let sql = `SELECT * FROM games WHERE (title_zh LIKE ? OR title_en LIKE ?)`;
+  const bindParams = [searchTerm, searchTerm];
+
+  // 🌟 核心防御：如果不是后台请求，强行过滤掉下架游戏
+  if (!isAdmin) {
+    sql += " AND is_active = 1";
+  }
+
+  sql += " ORDER BY id DESC";
+
+  const results = db.prepare(sql).all(...bindParams);
   
   const games = results.map(row => ({
     id: row.id,
