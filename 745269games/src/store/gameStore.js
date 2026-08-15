@@ -382,14 +382,14 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  // 🌟 17. 获取实时访问日志明细
-  const fetchAccessLogs = async () => {
+  // 🌟 17. 获取实时访问日志明细 (支持分页传参)
+  const fetchAccessLogs = async (limit = 100, offset = 0) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/analytics/logs`)
+      const res = await fetch(`${API_BASE_URL}/api/analytics/logs?limit=${limit}&offset=${offset}`)
       if (!res.ok) throw new Error('获取访问日志失败')
-      return await res.json()
+      return await res.json() // 这里现在返回的是 { total: Number, data: Array }
     } catch (error) {
-      return []
+      return { total: 0, data: [] }
     }
   }
 

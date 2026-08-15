@@ -37,12 +37,13 @@
 
     <div class="data-card">
       <div class="card-header-row">
-        <h2 class="card-title">🌐 实时访客轨迹日志 (最近50条)</h2>
+        <!-- 动态显示当前数据量信息 -->
+        <h2 class="card-title">🌐 实时访客轨迹日志 <span style="font-size: 14px; color: #94A3B8;">(总共 {{ totalLogs }} 条记录)</span></h2>
         <div class="header-btn-group">
-          <button class="btn-action btn-refresh" @click="loadData" :disabled="isLoading">
+          <button class="btn-action btn-refresh" @click="handleRefresh" :disabled="isLoading">
             刷新数据 🔄
           </button>
-          <button class="btn-action btn-clear" @click="handleClearLogs" :disabled="isLoading || accessLogs.length === 0">
+          <button class="btn-action btn-clear" @click="handleClearLogsClick" :disabled="isLoading || accessLogs.length === 0">
             清空日志 🗑️
           </button>
         </div>
@@ -61,27 +62,49 @@
         <div v-if="isLoading" class="loading-tip">正在同步流量日志...</div>
         <div v-else-if="accessLogs.length === 0" class="loading-tip">暂无访问日志，上线部署后将实时捕捉玩家访问足迹！</div>
 
-        <div class="table-row" v-for="log in accessLogs" :key="log.id">
-          <div class="col-id id-text">#{{ log.id }}</div>
-          <div class="col-ip ip-code">{{ log.user_ip || '127.0.0.1' }}</div>
-          <div class="col-location location-text">
-            {{ gameStore.ipLocationMap[log.user_ip] || '正在定位...' }}
+        <div v-else>
+          <div class="table-row" v-for="log in accessLogs" :key="log.id">
+            <div class="col-id id-text">#{{ log.id }}</div>
+            <div class="col-ip ip-code">{{ log.user_ip || '127.0.0.1' }}</div>
+            <div class="col-location location-text">
+              {{ gameStore.ipLocationMap[log.user_ip] || '正在定位...' }}
+            </div>
+            <div class="col-path path-pill">
+              <code>{{ log.path || '/' }}</code>
+            </div>
+            <div class="col-device device-text">{{ parseUserAgent(log.user_agent) }}</div>
+            <div class="col-time date-text">{{ formatDate(log.created_at) }}</div>
           </div>
-          <div class="col-path path-pill">
-            <code>{{ log.path || '/' }}</code>
-          </div>
-          <div class="col-device device-text">{{ parseUserAgent(log.user_agent) }}</div>
-          <div class="col-time date-text">{{ formatDate(log.created_at) }}</div>
+          
+          <!-- 🌟 引入刚封装的公共分页组件 -->
+          <Pagination 
+            v-model:currentPage="currentPage" 
+            :totalItems="totalLogs" 
+            :pageSize="pageSize" 
+            @change="loadData" 
+          />
         </div>
       </div>
     </div>
-
+    
+    <!-- 🌟 引入公共确认弹窗组件 -->
+    <ConfirmModal 
+      ref="confirmModalRef"
+      v-model:visible="showConfirm" 
+      :title="confirmConfig.title" 
+      :message="confirmConfig.message" 
+      :type="confirmConfig.type" 
+      @confirm="executeClearLogs" 
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useGameStore } from '@/store/gameStore'
+// 🌟 引入公共组件
+import Pagination from '@/components/common/Pagination.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const gameStore = useGameStore()
 
@@ -89,36 +112,71 @@ const isLoading = ref(true)
 const summary = ref({ todayPv: 0, todayUv: 0, totalVisits: 0, totalDownloads: 0 })
 const accessLogs = ref([])
 
+// 🌟 分页相关的状态变量
+const currentPage = ref(1)
+const pageSize = 100 // 默认每页展示100条
+const totalLogs = ref(0) // 从后端拿到的总数据量
+
+// 🌟 弹窗相关的状态变量
+const confirmModalRef = ref(null)
+const showConfirm = ref(false)
+const confirmConfig = ref({ title: '', message: '', type: 'primary' })
+
+// 核心加载数据方法
 const loadData = async () => {
   isLoading.value = true
+  
+  // 计算 offset 偏移量: (当前页 - 1) * 每页数量
+  const currentOffset = (currentPage.value - 1) * pageSize
+
   const [sumRes, logsRes] = await Promise.all([
     gameStore.fetchAnalyticsSummary(),
-    gameStore.fetchAccessLogs()
+    gameStore.fetchAccessLogs(pageSize, currentOffset) // 👈 传入分页参数
   ])
+  
   summary.value = sumRes
-  accessLogs.value = logsRes
+  
+  // 🌟 后端现在返回了 { total, data }，这里需要解构赋值
+  totalLogs.value = logsRes.total || 0
+  accessLogs.value = logsRes.data || []
+  
   isLoading.value = false
   
-  // 🌟 一句话调用全局 Store 里的 IP 解析引擎！
+  // 调用全局 Store 里的 IP 解析引擎
   if (accessLogs.value.length > 0) {
     const ipArray = accessLogs.value.map(log => log.user_ip)
     gameStore.parseIps(ipArray)
   }
 }
 
-// 🌟 清空日志触发二次确认与请求
-const handleClearLogs = async () => {
-  if (!confirm('🚨 确定要清空所有的访客日志记录吗？此操作无法撤销哦！')) {
-    return
-  }
+// 刷新按钮：手动重置到第一页并加载
+const handleRefresh = () => {
+  currentPage.value = 1
+  loadData()
+}
 
+// 🌟 1. 清空日志按钮点击事件 (唤起确认弹窗)
+const handleClearLogsClick = () => {
+  confirmConfig.value = {
+    title: '🚨 清空访问日志确认',
+    message: '确定要彻底清空数据库中所有的访客轨迹日志吗？此操作属于物理删除，无法撤销找回！',
+    type: 'danger' // 红色警告风格
+  }
+  showConfirm.value = true
+}
+
+// 🌟 2. 弹窗内确认后，实际执行后端清空操作
+const executeClearLogs = async () => {
   isLoading.value = true
   const res = await gameStore.clearAccessLogs()
+  
   if (res.success) {
-    alert('✅ 所有访问日志已被成功清空！')
+    // 调用 ConfirmModal 内置的 Toast 轻提示
+    confirmModalRef.value?.showToast('数据库已清理，所有访问日志已被成功清空！', 'success')
+    currentPage.value = 1
     await loadData() // 刷新页面数据
   } else {
-    alert(`❌ 清空失败: ${res.error || '网络错误'}`)
+    confirmModalRef.value?.showToast(`清空失败: ${res.error || '网络错误'}`, 'danger')
     isLoading.value = false
   }
 }
@@ -147,6 +205,7 @@ const formatDate = (str) => {
 </script>
 
 <style scoped>
+/* 保持你原本的样式，没有任何改动 */
 .analytics-workspace { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 24px; }
 
 /* 1. 顶部数据卡片网格 */

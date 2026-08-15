@@ -481,13 +481,24 @@ app.get('/api/analytics/summary', (req, res) => {
   }
 });
 
-// 17. 获取实时访问日志明细
+// 17. 获取实时访问日志明细 (🌟 升级为分页版)
 app.get('/api/analytics/logs', (req, res) => {
   try {
-    const results = db.prepare("SELECT * FROM site_logs ORDER BY id DESC LIMIT 50").all();
-    res.json(results);
+    // 接收前端传来的参数，默认 100 条
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+    
+    // 1. 先查出整个表一共多少条数据，供前端计算页数
+    const countRes = db.prepare("SELECT COUNT(*) as count FROM site_logs").get();
+    const total = countRes ? countRes.count : 0;
+
+    // 2. 根据分页参数，查出当前页的数据
+    const data = db.prepare("SELECT * FROM site_logs ORDER BY id DESC LIMIT ? OFFSET ?").all(limit, offset);
+    
+    // 3. 把总数和数据打包一起返回给前端
+    res.json({ total, data });
   } catch (err) {
-    res.json([]);
+    res.json({ total: 0, data: [] });
   }
 });
 
