@@ -168,30 +168,61 @@ app.post('/api/games', (req, res) => {
   res.json({ success: true, message: "游戏上传成功" });
 });
 
-// 4. 修改游戏
+// ==========================================
+// 4. 修改游戏 (基础信息编辑)
+// ==========================================
 app.put('/api/games/:id', (req, res) => {
-  const id = req.params.id;
-  const body = req.body;
+  try {
+    const id = req.params.id;
+    const body = req.body;
 
-  db.prepare(`
-    UPDATE games SET 
-      title_zh = ?, title_en = ?, cover_url = ?, description = ?,
-      aliases_json = ?, metadata_json = ?, downloads_json = ?, media_screenshots_json = ?,
-      video_url = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).run(
-    body.title?.zh_CN || '',
-    body.title?.en_US || '',
-    body.media?.cover || '',
-    body.description || '',
-    JSON.stringify(body.aliases || []),
-    JSON.stringify(body.metadata || {}),
-    JSON.stringify(body.downloads || []),
-    JSON.stringify(body.media?.screenshots || []),
-    body.media?.video || '',
-    id
-  );
-  res.json({ success: true, message: "修改成功" });
+    db.prepare(`
+      UPDATE games SET 
+        title_zh = ?, title_en = ?, cover_url = ?, description = ?,
+        aliases_json = ?, metadata_json = ?, downloads_json = ?, media_screenshots_json = ?,
+        video_url = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      body.title?.zh_CN || '',
+      body.title?.en_US || '',
+      body.media?.cover || '',
+      body.description || '',
+      JSON.stringify(body.aliases || []),
+      JSON.stringify(body.metadata || {}),
+      JSON.stringify(body.downloads || []),
+      JSON.stringify(body.media?.screenshots || []),
+      body.media?.video || '',
+      id
+    );
+    res.json({ success: true, message: "修改成功" });
+  } catch (error) {
+    console.error("❌ 修改游戏失败:", error.message);
+    res.status(500).json({ success: false, error: "修改游戏失败: " + error.message });
+  }
+});
+
+// ==========================================
+// 🌟 4.1 切换游戏上下架状态 (双状态秒切)
+// ==========================================
+app.put('/api/games/:id/status', (req, res) => {
+  try {
+    const id = req.params.id;
+    const body = req.body;
+    
+    // SQLite 中通常用 1 表示 true (上架)，0 表示 false (下架)
+    const isActiveStatus = body.is_active ? 1 : 0;
+    
+    db.prepare(`
+      UPDATE games 
+      SET is_active = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `).run(isActiveStatus, id);
+    
+    res.json({ success: true, message: "状态已成功切换" });
+  } catch (error) {
+    console.error("❌ 状态切换失败:", error.message);
+    res.status(500).json({ success: false, error: "状态切换失败: " + error.message });
+  }
 });
 
 // 5. 删除游戏

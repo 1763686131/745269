@@ -150,6 +150,30 @@ export const useGameStore = defineStore('game', () => {
     } catch (error) {}
   }
 
+  // 🌟 状态切换：上下架
+  const toggleGameStatus = async (id, newStatus) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: newStatus })
+      })
+      const result = await response.json()
+      
+      if (result.success) {
+        // 接口成功后，直接在前端内存里修改状态，不需要重新请求全部数据，体验秒切！
+        const targetGame = allGames.value.find(game => game.id === id)
+        if (targetGame && targetGame.system) {
+          targetGame.system.is_active = newStatus
+        }
+        return true
+      }
+    } catch (error) {
+      console.error('状态切换请求失败:', error)
+    }
+    return false
+  }
+
   // 4. 图片上传
   const uploadImage = async (file) => {
     const formData = new FormData()
@@ -211,7 +235,9 @@ export const useGameStore = defineStore('game', () => {
       platforms: game.metadata?.platforms || [],
       tags: game.metadata?.genres || [],
       downloads: game.downloads?.length || 0,
-      downloadCount: game.download_count || 0 
+      downloadCount: game.download_count || 0,
+      // 🌟 关键点：isActive 字段的判断逻辑，确保兼容不同数据结构
+      isActive: game.system?.is_active !== undefined ? (game.system.is_active === 1 || game.system.is_active === true) : true
     }))
   }
 
@@ -479,6 +505,7 @@ const parseIps = async (ipArray) => {
     adminLogout,   //
     clearAccessLogs, // 新增清空访问日志方法
     ipLocationMap,  // 新增 IP 位置映射
-    parseIps      // 新增 IP 定位方法
+    parseIps,      // 新增 IP 定位方法
+    toggleGameStatus // 新增上下架状态切换方法
   }
 })

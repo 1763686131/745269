@@ -18,6 +18,7 @@ src/
 │       └── theme.css   # 全局 CSS 变量（主题库）
 ├── components/         # 公共/基础组件 (跨页面复用)
 │   ├── common/         # 如：BaseButton.vue, SearchBar.vue
+│   │     └──FeedbackModal.vue   # 公共的反馈提交表单
 │   ├── front/          # 前台专用小组件：NavBar.vue, GameCard.vue
 │   └── admin/          # 后台专用小组件：AdminSidebar.vue
 │         ├──GameFormModal.vue   # 修改&上传编辑游戏组件
@@ -31,7 +32,7 @@ src/
 │   ├── front/
 │   │   ├── gamesHome.vue    # 前台首页 (原 GameHome.vue 的主体)
 │   │   ├── Column.vue       # 游戏分类栏目
-│   │   └── GameDetail.vue       # 游戏详情 (原 CategoryDetail.vue)
+│   │   └── GameDetail.vue   # 游戏详情 (原 CategoryDetail.vue)
 │   └── admin/
 │       ├── Dashboard.vue
 │       └── GameList.vue     # 游戏管理列表 (原 GameAdminUpload.vue 的主体)
@@ -134,6 +135,9 @@ docker-compose up -d --build
 * [x] IP反馈修复（目前是获取不了IP）
 
 * [x] 访问数据优化，数据不准确
+
+* [] 游戏页面ID
+
 
 ## 项目增加内容
 
