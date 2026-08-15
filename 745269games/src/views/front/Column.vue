@@ -73,7 +73,7 @@
     </div>
 
     <div class="game-grid-layout" v-if="displayedGames.length > 0">
-      <article class="game-card" v-for="game in displayedGames" :key="game.id" @click="$router.push(`/game/${game.id}`)">
+      <article class="game-card" v-for="game in paginatedGames" :key="game.id" @click="$router.push(`/game/${game.id}`)">
         <div class="card-image-wrapper">
           <img v-if="game.cover" :src="game.cover" :alt="game.title" class="game-cover-img" />
           <div v-else class="image-placeholder"><span class="placeholder-text">暂无封面</span></div>
@@ -105,7 +105,11 @@
     <div class="all-loaded-hint" v-else-if="!gameStore.hasMore && totalCount > 0">
       🎮 服务器数据已全部加载至本地啦，尽情筛选吧！
     </div>
-
+    <Pagination 
+      v-model:currentPage="currentPage" 
+      :totalItems="displayedGames.length" 
+      :pageSize="pageSize" 
+    />
   </div>
 </template>
 
@@ -113,27 +117,19 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useGameStore } from '@/store/gameStore.js' 
+import Pagination from '@/components/common/Pagination.vue'
 
 const route = useRoute()
 const gameStore = useGameStore()
 
-const categoryMap = {
-  'single': { title: '大型单人游戏', tags: '单人' },
-  'double': { title: '双人/多人同屏', tags: '双人,多人同屏' }, 
-  'multi': { title: '局域网联机', tags: '局域网' },
-  'classic': { title: '体感游戏', tags: '体感' },
-  'goty': { title: '年度最佳', tags: '年度最佳' }
-}
+// ==========================================
+// 🌟 1. 变量声明必须放在最前面 (先买菜)
+// ==========================================
 
-const currentCategory = computed(() => {
-  return categoryMap[route.params.id] || { title: '全部游戏库', tags: '' }
-})
-
-// 🌟 1. 智能读取记忆的筛选状态（同分类恢复，异分类重置）
+// 智能读取记忆的筛选状态
 const getInitialFilter = () => {
   try {
     const saved = JSON.parse(sessionStorage.getItem('column_filter_state') || '{}')
-    // 只有当上次记录的栏目 ID 与当前页面相同时，才恢复筛选条件
     if (saved && saved.categoryId === route.params.id) {
       return saved
     }
@@ -147,7 +143,18 @@ const selectedPlatform = ref(initialFilter.platform || '全部')
 const selectedGenre = ref(initialFilter.genre || '全部')
 const sortOrder = ref(initialFilter.sortOrder || 'newest')
 
-// 🌟 2. 保存当前筛选状态到浏览器缓存
+const currentPage = ref(1)
+const pageSize = 20
+
+// ==========================================
+// 🌟 2. 监听器和方法放到后面 (再炒菜)
+// ==========================================
+
+// 监听筛选条件，只要用户切了分类、换了排序，立刻自动回到第 1 页！
+watch([selectedPlatform, selectedGenre, sortOrder], () => {
+  currentPage.value = 1
+})
+
 const saveFilterState = () => {
   const state = {
     categoryId: route.params.id,
@@ -158,7 +165,25 @@ const saveFilterState = () => {
   sessionStorage.setItem('column_filter_state', JSON.stringify(state))
 }
 
-// === 支持平台（一级分类：永远从全部游戏里提取） ===
+// 监听一级平台变化：重置二级玩法并更新状态
+watch(selectedPlatform, (newVal) => {
+  selectedGenre.value = '全部'
+  saveFilterState()
+})
+
+const categoryMap = {
+  'single': { title: '大型单人游戏', tags: '单人' },
+  'double': { title: '双人/多人同屏', tags: '双人,多人同屏' }, 
+  'multi': { title: '局域网联机', tags: '局域网' },
+  'classic': { title: '体感游戏', tags: '体感' },
+  'goty': { title: '年度最佳', tags: '年度最佳' }
+}
+
+const currentCategory = computed(() => {
+  return categoryMap[route.params.id] || { title: '全部游戏库', tags: '' }
+})
+
+// === 支持平台 ===
 const availablePlatforms = computed(() => {
   const platforms = new Set()
   gameStore.allGames.forEach(game => {
@@ -172,7 +197,7 @@ const availablePlatforms = computed(() => {
   return ['全部', ...Array.from(platforms)]
 })
 
-// === 游戏玩法（二级分类：根据选中的一级平台动态提取） ===
+// === 游戏玩法 ===
 const availableGenres = computed(() => {
   const genres = new Set()
   let gamesToExtract = gameStore.allGames
@@ -195,7 +220,6 @@ const availableGenres = computed(() => {
   return ['全部', ...Array.from(genres)]
 })
 
-// === 切换筛选条件并同步更新状态记忆 ===
 const setGenre = (genre) => { 
   selectedGenre.value = genre 
   saveFilterState()
@@ -203,7 +227,6 @@ const setGenre = (genre) => {
 
 const setPlatform = (plat) => { 
   selectedPlatform.value = plat 
-  // 触发 watch(selectedPlatform) 后会自动将 selectedGenre 重置为 '全部' 并保存
 }
 
 const setSortOrder = (order) => { 
@@ -211,34 +234,7 @@ const setSortOrder = (order) => {
   saveFilterState()
 }
 
-// === 监听一级平台变化：重置二级玩法并更新状态 ===
-watch(selectedPlatform, (newVal) => {
-  selectedGenre.value = '全部'
-  saveFilterState()
-})
-
-const fetchCurrentCategoryGames = () => {
-  gameStore.fetchGames(false, currentCategory.value.tags)
-}
-
-onMounted(() => {
-  fetchCurrentCategoryGames()
-})
-
-// === 顶部导航栏切换不同大分类（如从“单人”切到“双人”）：清空状态并重置 ===
-watch(() => route.params.id, () => {
-  if (route.name === 'Column') {
-    selectedGenre.value = '全部'
-    selectedPlatform.value = '全部'
-    sortOrder.value = 'newest'
-    saveFilterState()
-    fetchCurrentCategoryGames()
-  }
-})
-
-const loadMore = () => { gameStore.fetchGames(true, currentCategory.value.tags) }
-
-// 🚀 本地超级计算引擎：支持多维过滤 + 多维排序，零延迟！
+// 🚀 本地超级计算引擎
 const displayedGames = computed(() => {
   let games = [...gameStore.allGames]
 
@@ -289,10 +285,35 @@ const displayedGames = computed(() => {
   })
 })
 
+// 🌟 本地分页切割引擎
+const paginatedGames = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return displayedGames.value.slice(start, end)
+})
+
 const totalCount = computed(() => gameStore.allGames.length)
+
+const fetchCurrentCategoryGames = () => {
+  gameStore.fetchGames(false, currentCategory.value.tags)
+}
+
+onMounted(() => {
+  fetchCurrentCategoryGames()
+})
+
+watch(() => route.params.id, () => {
+  if (route.name === 'Column') {
+    selectedGenre.value = '全部'
+    selectedPlatform.value = '全部'
+    sortOrder.value = 'newest'
+    saveFilterState()
+    fetchCurrentCategoryGames()
+  }
+})
+
+const loadMore = () => { gameStore.fetchGames(true, currentCategory.value.tags) }
 </script>
-
-
 
 
 <style scoped>

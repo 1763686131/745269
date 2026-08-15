@@ -36,8 +36,8 @@
         <div class="col-actions">管理</div>
       </div>
 
-      <!-- 🌟 v-for 增加 index 索引 -->
-      <div class="table-row" v-for="(game) in displayedData" :key="game.id">
+      <!-- 🌟 核心修改：v-for 改为遍历分页后的数据 paginatedData -->
+      <div class="table-row" v-for="(game) in paginatedData" :key="game.id">
         <!-- 🌟 渲染序号 -->
         <div class="col-index">{{ game.id }}</div>
         
@@ -87,27 +87,34 @@
       </div>
       
       <!-- 🌟 无数据空状态兜底 -->
-      <div v-if="displayedData.length === 0" class="loading-tip">
+      <div v-if="paginatedData.length === 0" class="loading-tip">
         暂无符合该状态的游戏数据
       </div>
+
+      <!-- 🌟 引入刚封装的公共分页组件 -->
+      <!-- 这里传给总条数的是 displayedData.length (当前筛选条件下的总数) -->
+      <Pagination 
+        v-model:currentPage="currentPage" 
+        :totalItems="displayedData.length" 
+        :pageSize="pageSize" 
+      />
 
     </div>
     
     <!-- 游戏表单弹窗 -->
     <GameFormModal :visible="isModalVisible" :gameData="currentEditData" @update:visible="isModalVisible = $event" @submit="handleSave"/>
     
-    <!-- 🌟 修复：使用正常的 prop + update 事件绑定，以兼容 eslint 的 v-model 规则 -->
     <ConfirmModal ref="confirmModalRef" :visible="showConfirm" :title="confirmConfig.title" :message="confirmConfig.message" :type="confirmConfig.type" @update:visible="showConfirm = $event" @confirm="executeToggle"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue' // 🌟 引入 watch
 import { useGameStore } from '@/store/gameStore'
 import GameFormModal from '@/components/admin/GameFormModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
-
+import Pagination from '@/components/common/Pagination.vue' // 🌟 引入分页组件
 
 // 接收父框架传来的搜索数据
 const props = defineProps({
@@ -115,7 +122,10 @@ const props = defineProps({
   adminSearchResults: { type: Array, default: () => [] }
 })
 
-// 🌟 修复：补上了刚才漏掉的弹窗控制开关！
+// 🌟 新增：分页相关的状态变量
+const currentPage = ref(1)
+const pageSize = 50 // 默认每页展示50条数据
+
 const showConfirm = ref(false)
 
 const confirmModalRef = ref(null)
@@ -135,7 +145,12 @@ const currentEditData = ref(null)
 // 🌟 新增：状态过滤器标识 ('all', 'published', 'unpublished')
 const filterStatus = ref('all')
 
-// 🌟 修改：带有本地拦截过滤功能的 displayedData
+// 🌟 监听过滤状态或搜索关键词的变化，只要发生变化，就自动切回第一页！
+watch([filterStatus, () => props.activeSearchKeyword], () => {
+  currentPage.value = 1
+})
+
+// 🌟 原始计算属性：带有本地拦截过滤功能的 displayedData (表示所有的满足条件的数据总池)
 const displayedData = computed(() => {
   // 1. 确定数据源
   const baseData = props.activeSearchKeyword ? props.adminSearchResults : gameStore.allGames
@@ -151,6 +166,14 @@ const displayedData = computed(() => {
   }
 
   return formattedData
+})
+
+// 🌟 新增计算属性：本地分页切割引擎 (只取当前页的 50 条去渲染)
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  // 从总的过滤数据中，切出一块当前页需要展示的数据
+  return displayedData.value.slice(start, end)
 })
 
 const openAddModal = () => { currentEditData.value = null; isModalVisible.value = true; }
@@ -233,9 +256,9 @@ const getDiskClass = (diskName) => {
 </script>
 
 <style scoped>
+/* 样式保留你原本的写法，不需要任何变动 */
 .game-manager-container { width: 100%; }
 
-/* 🌟 操作栏加入 flex 对齐，让按钮和滑块同处一排 */
 .action-bar { 
   margin-top: 10px; 
   margin-bottom: 30px; 
@@ -248,9 +271,6 @@ const getDiskClass = (diskName) => {
 .btn-upload { background: linear-gradient(135deg, var(--color-admin-primary, #2DD4BF) 0%, var(--color-admin-hover, #34D399) 100%); color: #ffffff; font-size: 16px; font-weight: 800; border: none; padding: 12px 36px; border-radius: 100px; cursor: pointer; box-shadow: 0 8px 20px -6px rgba(52, 211, 153, 0.5); transition: all 0.2s ease; }
 .btn-upload:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(52, 211, 153, 0.6); }
 
-/* =======================================
-   🌟 炫酷滑块控制器核心 CSS
-======================================= */
 .status-slider {
   position: relative;
   display: inline-flex;
@@ -265,7 +285,7 @@ const getDiskClass = (diskName) => {
   z-index: 2;
   background: transparent;
   border: none;
-  width: 90px;  /* 固定每个选项宽度 */
+  width: 90px;
   height: 36px;
   border-radius: 100px;
   font-size: 14px;
@@ -283,20 +303,18 @@ const getDiskClass = (diskName) => {
   position: absolute;
   top: 4px;
   left: 4px;
-  width: 90px; /* 必须和上方 button 的 width 严格保持一致 */
+  width: 90px;
   height: 36px;
   background-color: var(--bg-card, #FFFFFF);
   border-radius: 100px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* 带有轻微果冻回弹的高级曲线 */
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 1;
 }
 
-/* 根据 filterStatus 的变量状态，控制底层白块横移 */
 .slider-bg.all { transform: translateX(0); }
 .slider-bg.published { transform: translateX(90px); }
 .slider-bg.unpublished { transform: translateX(180px); }
-/* ======================================= */
 
 .data-card { background-color: var(--bg-card, #FFFFFF); border-radius: 16px; padding: 32px; border: 1px solid var(--border-light, #F1F5F9); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); }
 .card-title { font-size: 18px; font-weight: 800; color: var(--text-heading, #1E293B); margin-bottom: 24px; text-align: left; }

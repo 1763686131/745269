@@ -88,7 +88,9 @@ export const useGameStore = defineStore('game', () => {
         hasMore.value = true
       }
       
-      const fetchLimit = 20; 
+      // 🌟 核心突破口：智能限流！
+      // 如果是管理员，直接拉取 5000 条进内存，供后台零延迟分页、搜索和筛选！
+      const fetchLimit = isAdminLoggedIn.value ? 5000 : 2000; 
       
       // 🌟 核心拆分：前台走公开通道，后台走专属鉴权通道
       let url = isAdminLoggedIn.value 
@@ -106,11 +108,12 @@ export const useGameStore = defineStore('game', () => {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      // 悄无声息地携带身份标识发给后端
+      // 发起请求
       const response = await fetch(url, { headers })
       if (!response.ok) throw new Error('网络请求失败')
       const data = await response.json()
       
+      // 如果拿回来的数据少于请求的限制，说明真的被掏空了，没有更多了
       if (data.length < fetchLimit) hasMore.value = false
       
       const parsedData = (Array.isArray(data) ? data : []).map(parseGameData)
