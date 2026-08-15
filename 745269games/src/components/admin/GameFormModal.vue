@@ -97,16 +97,28 @@
               </p>
             </div>
 
+            <!-- 🌟 重点改造：截图区域支持批量粘贴 + 拖拽排序 -->
             <div class="form-item mt-24">
               <label>游戏详情截图 (URL外链)</label>
               <div class="upload-action-row">
-                <input type="text" v-model="tempScreenshotUrl" @keyup.enter="addScreenshotUrl" placeholder="输入截图URL并按回车 或 点击右侧添加" class="flex-1">
+                <input type="text" v-model="tempScreenshotUrl" @keyup.enter="addScreenshotUrl" placeholder="支持批量！粘贴多个截图URL(用空格或逗号隔开)并按回车" class="flex-1">
                 <button class="btn-upload-file" @click="addScreenshotUrl">添加截图</button>
-                <span class="upload-tip">已添加 {{ formData.media?.screenshots?.length || 0 }} 张</span>
+                <span class="upload-tip">已添加 {{ formData.media?.screenshots?.length || 0 }} 张，支持拖拽排序</span>
               </div>
 
-              <div v-if="formData.media?.screenshots && formData.media.screenshots.length > 0" class="preview-grid-box">
-                <div v-for="(imgUrl, index) in formData.media.screenshots" :key="index" class="preview-screenshot-item">
+              <div v-if="formData.media?.screenshots && formData.media.screenshots.length > 0" class="preview-grid-box" @dragover.prevent @drop.prevent>
+                <!-- 加入 HTML5 拖拽事件 -->
+                <div 
+                  v-for="(imgUrl, index) in formData.media.screenshots" 
+                  :key="imgUrl + index" 
+                  class="preview-screenshot-item"
+                  :class="{ 'is-dragging': draggedIndex === index, 'drag-over': dragOverIndex === index }"
+                  draggable="true"
+                  @dragstart="onDragStart(index)"
+                  @dragover.prevent="onDragOver($event, index)"
+                  @drop="onDrop(index)"
+                  @dragend="onDragEnd"
+                >
                   <img :src="imgUrl" class="preview-img-thumb" alt="截图预览">
                   <button class="btn-delete-float" @click="removeScreenshot(index)" title="移除此张">✕</button>
                 </div>
@@ -238,34 +250,27 @@
 
         <footer class="modal-footer">
           <button class="btn-cancel" @click="handleClose">取消</button>
-          <!-- 🌟 核心修改：点击时不再直接提交，而是先调起二次确认弹窗 -->
           <button class="btn-submit" @click="handleSubmitClick">{{ isEdit ? '保存修改' : '确认上传并保存' }}</button>
         </footer>
 
       </div>
-
-
-       <!-- 🌟 引入刚封装的公共确认弹窗 -->
-  <ConfirmModal 
+        <!--弹窗子组件  -->
+      <ConfirmModal 
     v-model:visible="showSubmitConfirm" 
     :title="confirmConfig.title" 
     :message="confirmConfig.message" 
     :type="confirmConfig.type" 
     @confirm="handleRealSubmit" 
   />
-
-
-
     </div>
   </transition>
 
- 
+  
 </template>
 
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue'
 import { useGameStore } from '@/store/gameStore' 
-// 🌟 引入公共确认弹窗组件
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const gameStore = useGameStore()
@@ -288,7 +293,6 @@ const showModal = computed(() => {
 
 const isEdit = computed(() => !!props.gameData)
 
-// 🌟 新增：提交确认弹窗相关的响应式变量
 const showSubmitConfirm = ref(false)
 const confirmConfig = ref({
   title: '',
@@ -296,13 +300,12 @@ const confirmConfig = ref({
   type: 'primary'
 })
 
-// 1. 默认数据构造器：防止模态框挂载时读属性报错
 const getDefaultData = () => ({
   id: null,
   uuid: 'uuid_' + Date.now().toString(36) + Math.random().toString(36).substring(2),
   title: { zh_CN: '', en_US: '' },
   description: '',
-  aliases: [], // 语言支持数组
+  aliases: [],
   media: { 
     cover: '', 
     screenshots: [],
@@ -313,14 +316,9 @@ const getDefaultData = () => ({
   system: { is_active: true }
 })
 
-// 初始化为完整结构的 formData
 const formData = ref(getDefaultData())
-
-// 2. 语言支持配置
 const availableLanguages = ['简体中文', '繁体中文', '英语', '日语']
 const selectedLanguages = ref([])
-
-// 3. 分类与历史记录
 const tempGenres = ref('')
 const historyGenres = ref([])
 
@@ -337,13 +335,11 @@ const isGenreSelected = (tag) => {
 
 const toggleGenre = (tag) => {
   let currentTags = tempGenres.value ? tempGenres.value.split(/,|，/).map(s => s.trim()).filter(Boolean) : []
-  
   if (currentTags.includes(tag)) {
     currentTags = currentTags.filter(t => t !== tag)
   } else {
     currentTags.push(tag)
   }
-  
   tempGenres.value = currentTags.join(', ')
 }
 
@@ -353,14 +349,11 @@ const clearHistoryGenres = () => {
 }
 
 const tempScreenshotUrl = ref('')
-
-// 4. 平台互斥配置
 const platformOptions = ['Switch', 'PS5', 'PS4', 'PC']
 const isPlatformDisabled = (plat, currentIndex) => {
   return formData.value.downloads?.some((dl, index) => index !== currentIndex && dl.platform === plat)
 }
 
-// 5. 核心：监听模态框打开与数据回填
 watch(showModal, (newVal) => {
   if (newVal) {
     if (props.gameData) {
@@ -389,16 +382,15 @@ watch(showModal, (newVal) => {
   }
 })
 
-const handleImgError = (e) => {
-}
+const handleImgError = (e) => {}
 
-// 6. 核心：截图链接的批量添加逻辑
 const addScreenshotUrl = () => {
   const rawString = tempScreenshotUrl.value.trim()
   if (rawString) {
     if (!formData.value.media) formData.value.media = { cover: '', screenshots: [], video: '' }
     if (!formData.value.media.screenshots) formData.value.media.screenshots = []
     
+    // 支持按空格、逗号等批量切分
     const urlArray = rawString.split(/[\s,，]+/).filter(url => url.trim() !== '')
     formData.value.media.screenshots.push(...urlArray)
     tempScreenshotUrl.value = '' 
@@ -408,6 +400,42 @@ const addScreenshotUrl = () => {
 const removeScreenshot = (index) => {
   formData.value.media.screenshots.splice(index, 1)
 }
+
+// ==========================================
+// 🌟 核心新增：HTML5 拖拽排序逻辑
+// ==========================================
+const draggedIndex = ref(null)
+const dragOverIndex = ref(null)
+
+const onDragStart = (index) => {
+  draggedIndex.value = index
+}
+
+// 在目标上悬停时触发
+const onDragOver = (event, index) => {
+  event.preventDefault() // 必须阻止默认行为，才允许被 Drop 放下
+  dragOverIndex.value = index
+}
+
+// 松开鼠标时触发互换/插入
+const onDrop = (index) => {
+  if (draggedIndex.value !== null && draggedIndex.value !== index) {
+    const screenshots = formData.value.media.screenshots
+    // 将被拖拽的图片抽出来
+    const movedItem = screenshots.splice(draggedIndex.value, 1)[0]
+    // 塞入新的位置
+    screenshots.splice(index, 0, movedItem)
+  }
+  // 恢复状态
+  draggedIndex.value = null
+  dragOverIndex.value = null
+}
+
+const onDragEnd = () => {
+  draggedIndex.value = null
+  dragOverIndex.value = null
+}
+// ==========================================
 
 const addDownload = () => {
   if (!formData.value.downloads) formData.value.downloads = []
@@ -443,13 +471,11 @@ const handleClose = () => {
   emit('input', false)
 }
 
-// 7. 核心：网盘名称的预设与修改逻辑
 const presetDrives = ['百度网盘', '夸克网盘', '迅雷云盘', '阿里云盘', '天翼云盘', '123云盘']
 const setDriveName = (dlIndex, srcIndex, driveName) => {
   formData.value.downloads[dlIndex].sources[srcIndex].name = driveName
 }
 
-// 8. 智能解析网盘粘贴文案
 const handleUrlInput = (dlIndex, srcIndex) => {
   const src = formData.value.downloads[dlIndex].sources[srcIndex]
   const rawText = src.url
@@ -478,7 +504,6 @@ const handleUrlInput = (dlIndex, srcIndex) => {
   }
 }
 
-// 🌟 9. 新增：点击按钮调起确认弹窗
 const handleSubmitClick = () => {
   const gameName = formData.value.title?.zh_CN?.trim() || '未命名游戏'
   const actionText = isEdit.value ? '保存修改' : '确认上传'
@@ -488,10 +513,9 @@ const handleSubmitClick = () => {
     message: `确定要${actionText}游戏【${gameName}】并将数据同步至数据库吗？`,
     type: 'primary'
   }
-  showSubmitConfirm.value = true // 触发弹窗展示
+  showSubmitConfirm.value = true 
 }
 
-// 🌟 10. 核心：弹窗内点击确认后，真正执行提交动作
 const handleRealSubmit = async () => {
   formData.value.aliases = [...selectedLanguages.value]
   
@@ -504,11 +528,9 @@ const handleRealSubmit = async () => {
     await gameStore.saveTags(finalGenresArray)
   }
 
-  // 1. 发射表单数据并关闭上传弹窗
   emit('submit', formData.value)
   handleClose()
 
-  // 2. 提交完毕后，延迟 800 毫秒自动刷新页面 (等待父组件里的网络请求完成)
   setTimeout(() => {
     window.location.reload()
   }, 800)
@@ -747,6 +769,35 @@ input[type="text"]:focus, .textarea-box:focus {
 
 .preview-grid-box {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px; margin-top: 12px;
+}
+/* 🌟 拖拽图片专属交互样式 */
+.preview-screenshot-item {
+  position: relative;
+  width: 120px;
+  height: 68px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: grab; /* 提示可抓取 */
+  background: var(--bg-hover, #F8FAFC);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 2px solid transparent;
+}
+
+.preview-screenshot-item:active {
+  cursor: grabbing; /* 正在抓取中 */
+}
+
+/* 正在被拖拽的元素：变半透明且缩小 */
+.preview-screenshot-item.is-dragging {
+  opacity: 0.4;
+  transform: scale(0.9);
+}
+
+/* 被经过的元素：高亮提示即将放到这 */
+.preview-screenshot-item.drag-over {
+  border-color: var(--color-admin-primary, #2DD4BF);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(45, 212, 191, 0.3);
 }
 .preview-screenshot-item {
   position: relative; width: 100%; height: 85px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-main, #E2E8F0);
