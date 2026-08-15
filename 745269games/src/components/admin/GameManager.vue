@@ -2,75 +2,98 @@
   <div class="game-manager-container">
     <div class="action-bar">
       <button class="btn-upload" @click="openAddModal">上传游戏</button>
+      
+      <!-- 🌟 新增：动态丝滑筛选滑块 -->
+      <div class="status-slider">
+        <!-- 物理背景滑块 -->
+        <div class="slider-bg" :class="filterStatus"></div>
+        <!-- 三个状态选项 -->
+        <button 
+          :class="{ active: filterStatus === 'all' }" 
+          @click="filterStatus = 'all'"
+        >全部</button>
+        <button 
+          :class="{ active: filterStatus === 'published' }" 
+          @click="filterStatus = 'published'"
+        >已上架</button>
+        <button 
+          :class="{ active: filterStatus === 'unpublished' }" 
+          @click="filterStatus = 'unpublished'"
+        >已下架</button>
+      </div>
     </div>
 
     <div class="data-card">
       <h2 class="card-title">游戏列表</h2>
       <div class="table-header">
-          <!-- 🌟 新增序号列 -->
-          <div class="col-index">序号</div>
-          <div class="col-game">游戏</div>
-          <div class="col-date">上架日期</div>
-          <div class="col-platform">平台</div>
-          <div class="col-cat">分类</div> 
-          <div class="col-disk">网盘资源</div> 
-          <div class="col-downloads">真实下载量</div> 
-          <div class="col-actions">管理</div>
-        </div>
+        <div class="col-index">序号</div>
+        <div class="col-game">游戏</div>
+        <div class="col-date">上架日期</div>
+        <div class="col-platform">平台</div>
+        <div class="col-cat">分类</div> 
+        <div class="col-disk">网盘资源</div> 
+        <div class="col-downloads">真实下载量</div> 
+        <div class="col-actions">管理</div>
+      </div>
 
-        <!-- 🌟 v-for 增加 index 索引 -->
-        <div class="table-row" v-for="(game) in displayedData" :key="game.id">
-          <!-- 🌟 渲染序号 (根据数组索引 + 1) -->
-          <div class="col-index">{{ game.id}}</div>
-          
-          <div class="col-game game-info">
-            <img :src="game.cover" class="game-cover" alt="cover">
-            <div class="game-text">
-              <h3>{{ game.nameZh }}</h3>
-              <p>{{ game.nameEn }}</p>
-            </div>
-          </div>
-          <div class="col-date date-text">{{ game.date }}</div>
-          
-          <div class="col-platform cat-text">
-            <strong v-for="plat in game.platforms" :key="plat">{{ plat }} </strong>
-            <span v-if="!game.platforms || game.platforms.length === 0" class="empty-text">-</span>
-          </div>
-          
-          <div class="col-cat">
-            <div class="cat-tags-grid">
-              <span v-for="(tag, tIdx) in formatTags(game.tags)" :key="tIdx" class="cat-tag">[{{ tag }}]</span>
-            </div>
-            <span v-if="formatTags(game.tags).length === 0" class="empty-text">-</span>
-          </div>
-
-          <div class="col-disk version-disk-list">
-            <div v-for="(versionGroup, idx) in getVersionedDisks(game.id)" :key="idx" class="version-disk-item">
-              <div class="version-label"><span class="dot">•</span>{{ versionGroup.versionLabel }}</div>
-              <div class="disk-tags-small">
-                <span v-for="disk in versionGroup.disks" :key="disk" :class="['disk-tag', getDiskClass(disk)]">[{{ disk }}]</span>
-              </div>
-            </div>
-            <span v-if="getVersionedDisks(game.id).length === 0" class="empty-text">-</span>
-          </div>
-
-          <div class="col-downloads download-count-text">{{ game.downloadCount || 0 }} <span class="unit">次</span></div>
-
-          <div class="col-actions btn-group">
-            <button class="btn-modify" @click="openEditModal(game.id)">修改</button>
-            <!-- 🌟 核心改造：双状态上下架按钮 -->
-            <button 
-              :class="game.isActive ? 'btn-delete' : 'btn-publish'" 
-              @click="handleToggleStatus(game.id, game.isActive)"
-            >
-              {{ game.isActive ? '下架' : '上架' }}
-            </button>
+      <!-- 🌟 v-for 增加 index 索引 -->
+      <div class="table-row" v-for="(game) in displayedData" :key="game.id">
+        <!-- 🌟 渲染序号 -->
+        <div class="col-index">{{ game.id }}</div>
+        
+        <div class="col-game game-info">
+          <img :src="game.cover" class="game-cover" alt="cover">
+          <div class="game-text">
+            <h3>{{ game.nameZh }}</h3>
+            <p>{{ game.nameEn }}</p>
           </div>
         </div>
+        <div class="col-date date-text">{{ game.date }}</div>
+        
+        <div class="col-platform cat-text">
+          <strong v-for="plat in game.platforms" :key="plat">{{ plat }} </strong>
+          <span v-if="!game.platforms || game.platforms.length === 0" class="empty-text">-</span>
+        </div>
+        
+        <div class="col-cat">
+          <div class="cat-tags-grid">
+            <span v-for="(tag, tIdx) in formatTags(game.tags)" :key="tIdx" class="cat-tag">[{{ tag }}]</span>
+          </div>
+          <span v-if="formatTags(game.tags).length === 0" class="empty-text">-</span>
+        </div>
+
+        <div class="col-disk version-disk-list">
+          <div v-for="(versionGroup, idx) in getVersionedDisks(game.id)" :key="idx" class="version-disk-item">
+            <div class="version-label"><span class="dot">•</span>{{ versionGroup.versionLabel }}</div>
+            <div class="disk-tags-small">
+              <span v-for="disk in versionGroup.disks" :key="disk" :class="['disk-tag', getDiskClass(disk)]">[{{ disk }}]</span>
+            </div>
+          </div>
+          <span v-if="getVersionedDisks(game.id).length === 0" class="empty-text">-</span>
+        </div>
+
+        <div class="col-downloads download-count-text">{{ game.downloadCount || 0 }} <span class="unit">次</span></div>
+
+        <div class="col-actions btn-group">
+          <button class="btn-modify" @click="openEditModal(game.id)">修改</button>
+          <!-- 🌟 双状态上下架按钮 -->
+          <button 
+            :class="game.isActive ? 'btn-delete' : 'btn-publish'" 
+            @click="handleToggleStatus(game.id, game.isActive)"
+          >
+            {{ game.isActive ? '下架' : '上架' }}
+          </button>
+        </div>
+      </div>
+      
+      <!-- 🌟 无数据空状态兜底 -->
+      <div v-if="displayedData.length === 0" class="loading-tip">
+        暂无符合该状态的游戏数据
+      </div>
 
     </div>
     
-    <!-- 弹窗移到这里了 -->
+    <!-- 游戏表单弹窗 -->
     <GameFormModal :visible="isModalVisible" :gameData="currentEditData" @update:visible="isModalVisible = $event" @submit="handleSave"/>
   </div>
 </template>
@@ -90,9 +113,25 @@ const gameStore = useGameStore()
 const isModalVisible = ref(false)
 const currentEditData = ref(null)
 
+// 🌟 新增：状态过滤器标识 ('all', 'published', 'unpublished')
+const filterStatus = ref('all')
+
+// 🌟 修改：带有本地拦截过滤功能的 displayedData
 const displayedData = computed(() => {
-  if (props.activeSearchKeyword) return gameStore.formatAdminTableData(props.adminSearchResults)
-  return gameStore.formatAdminTableData(gameStore.allGames)
+  // 1. 确定数据源
+  const baseData = props.activeSearchKeyword ? props.adminSearchResults : gameStore.allGames
+  
+  // 2. 先清洗格式化
+  let formattedData = gameStore.formatAdminTableData(baseData)
+
+  // 3. 本地零延迟过滤：拦截未命中状态的数据
+  if (filterStatus.value === 'published') {
+    formattedData = formattedData.filter(game => game.isActive === true)
+  } else if (filterStatus.value === 'unpublished') {
+    formattedData = formattedData.filter(game => game.isActive === false)
+  }
+
+  return formattedData
 })
 
 const openAddModal = () => { currentEditData.value = null; isModalVisible.value = true; }
@@ -131,22 +170,18 @@ const getVersionedDisks = (gameId) => {
   return result
 }
 
-
 // 🌟 切换上下架状态逻辑
 const handleToggleStatus = async (id, currentStatus) => {
-  // 如果当前是激活(1/true)，新状态就是 0；否则就是 1
   const newStatus = currentStatus ? 0 : 1; 
   const actionName = newStatus === 1 ? '上架' : '下架';
   
   if (confirm(`确定要将该游戏【${actionName}】吗？`)) {
-    // 这里调用接下来我们要在 Store 里写的接口
     const success = await gameStore.toggleGameStatus(id, newStatus);
     if (success) {
       alert(`操作成功，游戏已${actionName}！`);
     }
   }
 }
-
 
 const getDiskClass = (diskName) => {
   if (diskName.includes('百度')) return 'tag-baidu'
@@ -158,11 +193,70 @@ const getDiskClass = (diskName) => {
 </script>
 
 <style scoped>
-/* 这里只保留游戏列表和卡片的专属CSS */
 .game-manager-container { width: 100%; }
-.action-bar { margin-top: 10px; margin-bottom: 30px; display: flex; justify-content: flex-start; }
+
+/* 🌟 操作栏加入 flex 对齐，让按钮和滑块同处一排 */
+.action-bar { 
+  margin-top: 10px; 
+  margin-bottom: 30px; 
+  display: flex; 
+  justify-content: flex-start; 
+  align-items: center; 
+  gap: 24px; 
+}
+
 .btn-upload { background: linear-gradient(135deg, var(--color-admin-primary, #2DD4BF) 0%, var(--color-admin-hover, #34D399) 100%); color: #ffffff; font-size: 16px; font-weight: 800; border: none; padding: 12px 36px; border-radius: 100px; cursor: pointer; box-shadow: 0 8px 20px -6px rgba(52, 211, 153, 0.5); transition: all 0.2s ease; }
 .btn-upload:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(52, 211, 153, 0.6); }
+
+/* =======================================
+   🌟 炫酷滑块控制器核心 CSS
+======================================= */
+.status-slider {
+  position: relative;
+  display: inline-flex;
+  background-color: var(--bg-hover, #F1F5F9);
+  border-radius: 100px;
+  padding: 4px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.status-slider button {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  border: none;
+  width: 90px;  /* 固定每个选项宽度 */
+  height: 36px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-light, #94A3B8);
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.status-slider button.active {
+  color: var(--color-admin-primary, #10B981);
+}
+
+.slider-bg {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 90px; /* 必须和上方 button 的 width 严格保持一致 */
+  height: 36px;
+  background-color: var(--bg-card, #FFFFFF);
+  border-radius: 100px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* 带有轻微果冻回弹的高级曲线 */
+  z-index: 1;
+}
+
+/* 根据 filterStatus 的变量状态，控制底层白块横移 */
+.slider-bg.all { transform: translateX(0); }
+.slider-bg.published { transform: translateX(90px); }
+.slider-bg.unpublished { transform: translateX(180px); }
+/* ======================================= */
 
 .data-card { background-color: var(--bg-card, #FFFFFF); border-radius: 16px; padding: 32px; border: 1px solid var(--border-light, #F1F5F9); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); }
 .card-title { font-size: 18px; font-weight: 800; color: var(--text-heading, #1E293B); margin-bottom: 24px; text-align: left; }
@@ -171,13 +265,10 @@ const getDiskClass = (diskName) => {
 .table-row { display: grid; grid-template-columns: 0.5fr 2fr 1fr 0.8fr 1.2fr 2fr 0.8fr 1fr; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--bg-hover, #F8FAFC); transition: background-color 0.2s; }
 
 .table-row:hover { background-color: var(--bg-hover, #F8FAFC); }
-/* 序号列样式 */
 .col-index { text-align: left; font-size: 14px; font-weight: 800; color: var(--text-light, #94A3B8); padding-left: 8px; }
 
-/* 🌟 上架按钮专属样式 (护眼绿) */
 .btn-publish { background-color: var(--color-admin-primary, #10B981); box-shadow: 0 4px 10px -2px rgba(16, 185, 129, 0.3); }
 .btn-publish:hover { opacity: 0.9; }
-
 
 .col-game, .col-date, .col-platform, .col-cat, .col-disk, .col-downloads { text-align: left; }
 .game-info { display: flex; align-items: center; gap: 16px; }
