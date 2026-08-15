@@ -89,18 +89,25 @@ export const useGameStore = defineStore('game', () => {
       }
       
       const fetchLimit = 20; 
-      let url = `${API_BASE_URL}/api/games?limit=${fetchLimit}&offset=${currentOffset.value}`
       
+      // 🌟 核心拆分：前台走公开通道，后台走专属鉴权通道
+      let url = isAdminLoggedIn.value 
+        ? `${API_BASE_URL}/api/admin/games?limit=${fetchLimit}&offset=${currentOffset.value}`
+        : `${API_BASE_URL}/api/games?limit=${fetchLimit}&offset=${currentOffset.value}`
+        
       if (tags) {
         url += `&tags=${encodeURIComponent(tags)}`
       }
 
-      // 🌟 核心对接：如果是管理员登录状态，自动在请求屁股后面加上暗号！
+      // 🌟 在请求头（Headers）中加入 Token 门票
+      const headers = {}
       if (isAdminLoggedIn.value) {
-        url += `&is_admin=true`
+        const token = localStorage.getItem('745269_admin_token')
+        headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch(url)
+      // 悄无声息地携带身份标识发给后端
+      const response = await fetch(url, { headers })
       if (!response.ok) throw new Error('网络请求失败')
       const data = await response.json()
       
@@ -195,14 +202,18 @@ export const useGameStore = defineStore('game', () => {
   // 5. 真实服务端搜索 API 请求
   const fetchSearchFromServer = async (keyword) => {
     try {
-      let url = `${API_BASE_URL}/api/games/search?q=${encodeURIComponent(keyword)}`
-      
-      // 🌟 核心对接：搜索接口同样自动带上管理员暗号！
+      // 🌟 核心拆分：搜索也分两套接口
+      let url = isAdminLoggedIn.value 
+        ? `${API_BASE_URL}/api/admin/games/search?q=${encodeURIComponent(keyword)}`
+        : `${API_BASE_URL}/api/games/search?q=${encodeURIComponent(keyword)}`
+
+      const headers = {}
       if (isAdminLoggedIn.value) {
-        url += `&is_admin=true`
+        const token = localStorage.getItem('745269_admin_token')
+        headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch(url)
+      const response = await fetch(url, { headers })
       if (!response.ok) {
         const errText = await response.text()
         throw new Error(`[HTTP 状态码: ${response.status}] 详情: ${errText}`)

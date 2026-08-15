@@ -69,82 +69,9 @@ app.use((req, res, next) => {
 // 3. 后端 API 接口区 (纯正 Express 语法)
 // ==========================================
 
-// 1. 获取分页游戏/分类栏目列表
-app.get('/api/games', (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = parseInt(req.query.offset) || 0;
-    const tags = req.query.tags; 
-    
-    // 🌟 核心暗号：判断是不是后台发来的请求
-    const isAdmin = req.query.is_admin === 'true';
-
-    // 💡 技巧：先加上 WHERE 1=1，方便后面无脑拼接 AND
-    let sql = "SELECT * FROM games WHERE 1=1";
-    const bindParams = [];
-
-    // 🌟 核心防御：如果不是后台请求，强行过滤掉已下架(is_active=0)的游戏！
-    if (!isAdmin) {
-      sql += " AND is_active = 1";
-    }
-
-    if (tags) {
-      const tagArray = tags.split(',').filter(Boolean);
-      if (tagArray.length > 0) {
-        const conditions = tagArray.map(() => `(metadata_json LIKE ? OR aliases_json LIKE ?)`);
-        // 注意这里一定要加括号，防止 OR 条件破坏前面的 AND is_active = 1
-        sql += " AND (" + conditions.join(" OR ") + ")";
-        tagArray.forEach(tag => {
-          bindParams.push(`%${tag}%`, `%${tag}%`);
-        });
-      }
-    }
-
-    sql += " ORDER BY id DESC LIMIT ? OFFSET ?";
-    bindParams.push(limit, offset);
-
-    const results = db.prepare(sql).all(...bindParams);
-    
-    const games = results.map(row => ({
-      id: row.id,
-      uuid: row.uuid,
-      title: { zh_CN: row.title_zh, en_US: row.title_en },
-      description: row.description,
-      media: { cover: row.cover_url, screenshots: JSON.parse(row.media_screenshots_json || '[]'), video: row.video_url || '' },
-      aliases: JSON.parse(row.aliases_json || '[]'),
-      metadata: JSON.parse(row.metadata_json || '{"platforms":[],"genres":[]}'),
-      downloads: JSON.parse(row.downloads_json || '[]'),
-      download_count: row.download_count || 0, 
-      likes: row.likes || 0,
-      system: { is_active: row.is_active, created_at: row.created_at, updated_at: row.updated_at }
-    }));
-
-    res.json(games);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 2. 真实服务端搜索接口
-app.get('/api/games/search', (req, res) => {
-  const keyword = req.query.q || "";
-  const searchTerm = `%${keyword}%`;
-  // 🌟 同样接收暗号
-  const isAdmin = req.query.is_admin === 'true';
-
-  let sql = `SELECT * FROM games WHERE (title_zh LIKE ? OR title_en LIKE ?)`;
-  const bindParams = [searchTerm, searchTerm];
-
-  // 🌟 核心防御：如果不是后台请求，强行过滤掉下架游戏
-  if (!isAdmin) {
-    sql += " AND is_active = 1";
-  }
-
-  sql += " ORDER BY id DESC";
-
-  const results = db.prepare(sql).all(...bindParams);
-  
-  const games = results.map(row => ({
+// 🛠️ 提取公共数据格式化方法，避免代码臃肿
+const formatGameData = (results) => {
+  return results.map(row => ({
     id: row.id,
     uuid: row.uuid,
     title: { zh_CN: row.title_zh, en_US: row.title_en },
@@ -157,8 +84,110 @@ app.get('/api/games/search', (req, res) => {
     likes: row.likes || 0,
     system: { is_active: row.is_active, created_at: row.created_at, updated_at: row.updated_at }
   }));
+};
 
-  res.json(games);
+// 🌟【核心中间件】拦截后台 API，验证管理员门票 (Token)
+const verifyAdmin = (req, res, next) => {
+  const authHeader = req.headers['authorization'] || '';
+  // 校验是否带有合法登录生成的 ADMIN_TOKEN
+  if (!authHeader.includes('ADMIN_TOKEN_')) {
+    return res.status(403).json({ error: '权限不足：非法越权访问已被拦截！' });
+  }
+  next(); // 验证通过，放行
+};
+
+
+// ================= [前台专属 API：完全公开] =================
+
+// 1. 前台：获取游戏列表 (严格在 SQL 层面写死 is_active = 1，绝不外泄)
+app.get('/api/games', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = parseInt(req.query.offset) || 0;
+    const tags = req.query.tags; 
+
+    // 强行锁死只查询上架数据
+    let sql = "SELECT * FROM games WHERE is_active = 1";
+    const bindParams = [];
+
+    if (tags) {
+      const tagArray = tags.split(',').filter(Boolean);
+      if (tagArray.length > 0) {
+        const conditions = tagArray.map(() => `(metadata_json LIKE ? OR aliases_json LIKE ?)`);
+        sql += " AND (" + conditions.join(" OR ") + ")";
+        tagArray.forEach(tag => bindParams.push(`%${tag}%`, `%${tag}%`));
+      }
+    }
+
+    sql += " ORDER BY id DESC LIMIT ? OFFSET ?";
+    bindParams.push(limit, offset);
+
+    const results = db.prepare(sql).all(...bindParams);
+    res.json(formatGameData(results));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. 前台：搜索接口 (同样锁死 is_active = 1)
+app.get('/api/games/search', (req, res) => {
+  const keyword = req.query.q || "";
+  const searchTerm = `%${keyword}%`;
+
+  const results = db.prepare(`
+    SELECT * FROM games 
+    WHERE is_active = 1 AND (title_zh LIKE ? OR title_en LIKE ?) 
+    ORDER BY id DESC
+  `).all(searchTerm, searchTerm);
+  
+  res.json(formatGameData(results));
+});
+
+
+// ================= [后台专属 API：高重防线] =================
+
+// 3. 后台：获取全量游戏列表 (必须经过 verifyAdmin 校验)
+app.get('/api/admin/games', verifyAdmin, (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = parseInt(req.query.offset) || 0;
+    const tags = req.query.tags; 
+
+    // 后台无视 is_active，拉取全部
+    let sql = "SELECT * FROM games WHERE 1=1";
+    const bindParams = [];
+
+    if (tags) {
+      const tagArray = tags.split(',').filter(Boolean);
+      if (tagArray.length > 0) {
+        const conditions = tagArray.map(() => `(metadata_json LIKE ? OR aliases_json LIKE ?)`);
+        sql += " AND (" + conditions.join(" OR ") + ")";
+        tagArray.forEach(tag => bindParams.push(`%${tag}%`, `%${tag}%`));
+      }
+    }
+
+    sql += " ORDER BY id DESC LIMIT ? OFFSET ?";
+    bindParams.push(limit, offset);
+
+    const results = db.prepare(sql).all(...bindParams);
+    res.json(formatGameData(results));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4. 后台：全量搜索 (必须经过 verifyAdmin 校验)
+app.get('/api/admin/games/search', verifyAdmin, (req, res) => {
+  const keyword = req.query.q || "";
+  const searchTerm = `%${keyword}%`;
+
+  const results = db.prepare(`
+    SELECT * FROM games 
+    WHERE (title_zh LIKE ? OR title_en LIKE ?) 
+    ORDER BY id DESC
+  `).all(searchTerm, searchTerm);
+  
+  res.json(formatGameData(results));
 });
 
 // 3. 新增游戏
