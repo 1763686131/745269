@@ -161,10 +161,16 @@ const openEditModal = (gameId) => {
 }
 
 const handleSave = async (formData) => {
+  const isEditMode = !!formData.id
   const success = await gameStore.saveGame(formData)
-  if (success) alert('游戏数据已成功入库并同步！')
+  if (success) {
+    // 🌟 无感顶部 Toast 提示成功，彻底告别浏览器原生 alert！
+    confirmModalRef.value?.showToast(
+      isEditMode ? '✨ 游戏配置已成功修改并同步！' : '🚀 新游戏已成功入库并发布！', 
+      'success'
+    )
+  }
 }
-
 const formatTags = (tags) => {
   if (!tags || tags.length === 0) return []
   return tags.join(',').split(/,|，/).map(t => t.trim()).filter(Boolean)

@@ -180,10 +180,9 @@
                     class="textarea-box" 
                     rows="3" 
                     placeholder="例如:&#10;操作系统: Windows 10 64-bit&#10;处理器: Intel Core i5-6600K / AMD Ryzen 5 1600&#10;内存: 8 GB RAM&#10;显卡: NVIDIA GeForce GTX 1060 6GB / AMD Radeon RX 580"
-                     ></textarea>
+                  ></textarea>
                 </div>
               </div>
-              
 
               <div class="nested-section">
                 <div class="nested-header">
@@ -239,17 +238,35 @@
 
         <footer class="modal-footer">
           <button class="btn-cancel" @click="handleClose">取消</button>
-          <button class="btn-submit" @click="handleSubmit">{{ isEdit ? '保存修改' : '确认上传并保存' }}</button>
+          <!-- 🌟 核心修改：点击时不再直接提交，而是先调起二次确认弹窗 -->
+          <button class="btn-submit" @click="handleSubmitClick">{{ isEdit ? '保存修改' : '确认上传并保存' }}</button>
         </footer>
 
       </div>
+
+
+       <!-- 🌟 引入刚封装的公共确认弹窗 -->
+  <ConfirmModal 
+    v-model:visible="showSubmitConfirm" 
+    :title="confirmConfig.title" 
+    :message="confirmConfig.message" 
+    :type="confirmConfig.type" 
+    @confirm="handleRealSubmit" 
+  />
+
+
+
     </div>
   </transition>
+
+ 
 </template>
 
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue'
 import { useGameStore } from '@/store/gameStore' 
+// 🌟 引入公共确认弹窗组件
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
 
 const gameStore = useGameStore()
 
@@ -271,7 +288,15 @@ const showModal = computed(() => {
 
 const isEdit = computed(() => !!props.gameData)
 
-// 🌟 1. 默认数据构造器：防止模态框挂载时读属性报错
+// 🌟 新增：提交确认弹窗相关的响应式变量
+const showSubmitConfirm = ref(false)
+const confirmConfig = ref({
+  title: '',
+  message: '',
+  type: 'primary'
+})
+
+// 1. 默认数据构造器：防止模态框挂载时读属性报错
 const getDefaultData = () => ({
   id: null,
   uuid: 'uuid_' + Date.now().toString(36) + Math.random().toString(36).substring(2),
@@ -281,9 +306,9 @@ const getDefaultData = () => ({
   media: { 
     cover: '', 
     screenshots: [],
-    video: '' // 👈 必须初始化 video 字段
+    video: '' 
   },
-  metadata: { platforms: [], genres: [] }, // genres 分类数组
+  metadata: { platforms: [], genres: [] }, 
   downloads: [],
   system: { is_active: true }
 })
@@ -291,11 +316,11 @@ const getDefaultData = () => ({
 // 初始化为完整结构的 formData
 const formData = ref(getDefaultData())
 
-// 🌟 2. 语言支持配置
+// 2. 语言支持配置
 const availableLanguages = ['简体中文', '繁体中文', '英语', '日语']
 const selectedLanguages = ref([])
 
-// 🌟 3. 分类与历史记录
+// 3. 分类与历史记录
 const tempGenres = ref('')
 const historyGenres = ref([])
 
@@ -304,26 +329,21 @@ onMounted(async () => {
   historyGenres.value = gameStore.historyTags
 })
 
-// 🌟 检查某个标签当前是否已在输入框中（支持中文/英文逗号与空格自动拆分匹配）
 const isGenreSelected = (tag) => {
   if (!tempGenres.value) return false
   const currentTags = tempGenres.value.split(/,|，/).map(s => s.trim()).filter(Boolean)
   return currentTags.includes(tag)
 }
 
-// 🌟 智能切换标签：未选中时点击增加，已选中时再次点击自动移除
 const toggleGenre = (tag) => {
   let currentTags = tempGenres.value ? tempGenres.value.split(/,|，/).map(s => s.trim()).filter(Boolean) : []
   
   if (currentTags.includes(tag)) {
-    // 如果已经存在，再次点击就从输入框里剔除
     currentTags = currentTags.filter(t => t !== tag)
   } else {
-    // 如果不存在，追加进去
     currentTags.push(tag)
   }
   
-  // 重新拼回带逗号加空格的规范字符串
   tempGenres.value = currentTags.join(', ')
 }
 
@@ -334,37 +354,33 @@ const clearHistoryGenres = () => {
 
 const tempScreenshotUrl = ref('')
 
-// 🌟 4. 平台互斥配置
+// 4. 平台互斥配置
 const platformOptions = ['Switch', 'PS5', 'PS4', 'PC']
 const isPlatformDisabled = (plat, currentIndex) => {
   return formData.value.downloads?.some((dl, index) => index !== currentIndex && dl.platform === plat)
 }
 
-// 🌟 5. 核心：监听模态框打开与数据回填（修改 vs 上传）
+// 5. 核心：监听模态框打开与数据回填
 watch(showModal, (newVal) => {
   if (newVal) {
     if (props.gameData) {
-      // 深拷贝防污染
       const data = JSON.parse(JSON.stringify(props.gameData))
       
-      // 完善各层级的防空校验，确保回显不出死角
       if (!data.title) data.title = { zh_CN: '', en_US: '' }
       if (!data.description) data.description = ''
       if (!data.aliases) data.aliases = [] 
       if (!data.media) data.media = { cover: '', screenshots: [], video: '' }
       if (!data.media.screenshots) data.media.screenshots = []
-      if (data.media.video === undefined) data.media.video = '' // 防空补充
+      if (data.media.video === undefined) data.media.video = '' 
       if (!data.metadata) data.metadata = { platforms: [], genres: [] }
       if (!data.downloads) data.downloads = []
 
       formData.value = data
 
-      // 回显复选框和输入框
       selectedLanguages.value = [...data.aliases]
       tempGenres.value = data.metadata?.genres?.join(', ') || ''
       tempScreenshotUrl.value = ''
     } else {
-      // 上传模式，重置为空表单
       formData.value = getDefaultData()
       selectedLanguages.value = []
       tempGenres.value = ''
@@ -374,23 +390,17 @@ watch(showModal, (newVal) => {
 })
 
 const handleImgError = (e) => {
-  // 可加上占位图逻辑
 }
 
-// 🌟 6. 核心：截图链接的批量添加逻辑
+// 6. 核心：截图链接的批量添加逻辑
 const addScreenshotUrl = () => {
   const rawString = tempScreenshotUrl.value.trim()
   if (rawString) {
     if (!formData.value.media) formData.value.media = { cover: '', screenshots: [], video: '' }
     if (!formData.value.media.screenshots) formData.value.media.screenshots = []
     
-    // 🌟 核心魔法：利用正则表达式，根据“空格”、“英文逗号”、“中文逗号”或者“换行符”自动切割字符串
     const urlArray = rawString.split(/[\s,，]+/).filter(url => url.trim() !== '')
-    
-    // 将切割出来的多个链接一次性追加到截图数组中
     formData.value.media.screenshots.push(...urlArray)
-    
-    // 清空输入框
     tempScreenshotUrl.value = '' 
   }
 }
@@ -433,34 +443,26 @@ const handleClose = () => {
   emit('input', false)
 }
 
-// 🌟 7. 核心：网盘名称的预设与修改逻辑
+// 7. 核心：网盘名称的预设与修改逻辑
 const presetDrives = ['百度网盘', '夸克网盘', '迅雷云盘', '阿里云盘', '天翼云盘', '123云盘']
 const setDriveName = (dlIndex, srcIndex, driveName) => {
-  // 直接精准定位到对应版本、对应网盘链接的 name 字段并赋值
   formData.value.downloads[dlIndex].sources[srcIndex].name = driveName
 }
 
-
-// 🌟 8. 智能解析网盘粘贴文案（自动裁剪 URL 并提取密码）
+// 8. 智能解析网盘粘贴文案
 const handleUrlInput = (dlIndex, srcIndex) => {
   const src = formData.value.downloads[dlIndex].sources[srcIndex]
   const rawText = src.url
 
   if (!rawText) return
 
-  // 1. 匹配提取纯净的 HTTP/HTTPS 链接（过滤前后的中文和杂质）
   const urlMatch = rawText.match(/(https?:\/\/[^\s\u4e00-\u9fa5]+)/i)
 
   if (urlMatch) {
-    // 剔除末尾可能误带入的句号或英文标点
     let cleanUrl = urlMatch[1].replace(/[,\.！!]+$/, '')
-
-    // 2. 智能提取密码/提取码（支持 pwd=5269、提取码: 5269、密码: 5269 等各种格式）
     let extractedPwd = ''
     
-    // 优先识别链接参数里的 ?pwd=xxxx 或 &pwd=xxxx
     const pwdInUrl = cleanUrl.match(/[?&]pwd=([a-zA-Z0-9]+)/i)
-    // 其次识别文本里的 提取码: xxxx / 密码: xxxx / pwd: xxxx
     const pwdInText = rawText.match(/(?:提取码|密码|pwd)[:：\s]*([a-zA-Z0-9]+)/i)
 
     if (pwdInUrl) {
@@ -469,7 +471,6 @@ const handleUrlInput = (dlIndex, srcIndex) => {
       extractedPwd = pwdInText[1]
     }
 
-    // 3. 自动更新输入框中的数据
     src.url = cleanUrl
     if (extractedPwd) {
       src.password = extractedPwd
@@ -477,8 +478,21 @@ const handleUrlInput = (dlIndex, srcIndex) => {
   }
 }
 
-// 🌟 9. 核心：提交表单数据给父组件，并延迟刷新页面
-const handleSubmit = async () => {
+// 🌟 9. 新增：点击按钮调起确认弹窗
+const handleSubmitClick = () => {
+  const gameName = formData.value.title?.zh_CN?.trim() || '未命名游戏'
+  const actionText = isEdit.value ? '保存修改' : '确认上传'
+
+  confirmConfig.value = {
+    title: `${actionText}确认`,
+    message: `确定要${actionText}游戏【${gameName}】并将数据同步至数据库吗？`,
+    type: 'primary'
+  }
+  showSubmitConfirm.value = true // 触发弹窗展示
+}
+
+// 🌟 10. 核心：弹窗内点击确认后，真正执行提交动作
+const handleRealSubmit = async () => {
   formData.value.aliases = [...selectedLanguages.value]
   
   const finalGenresArray = tempGenres.value.split(/,|，/).map(s => s.trim()).filter(Boolean)
@@ -490,17 +504,18 @@ const handleSubmit = async () => {
     await gameStore.saveTags(finalGenresArray)
   }
 
+  // 1. 发射表单数据并关闭上传弹窗
   emit('submit', formData.value)
   handleClose()
 
-  // 👇 新增：提交完毕后，延迟 800 毫秒自动刷新页面
-  // 延迟是为了确保父组件的 API 保存请求能成功发往服务器，不断联
+  // 2. 提交完毕后，延迟 800 毫秒自动刷新页面 (等待父组件里的网络请求完成)
   setTimeout(() => {
     window.location.reload()
   }, 800)
 }
 
 </script>
+
 
 
 <style scoped>
