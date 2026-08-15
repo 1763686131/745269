@@ -19,7 +19,7 @@
         </div>
 
         <!-- 🌟 v-for 增加 index 索引 -->
-        <div class="table-row" v-for="(game, index) in displayedData" :key="game.id">
+        <div class="table-row" v-for="(game) in displayedData" :key="game.id">
           <!-- 🌟 渲染序号 (根据数组索引 + 1) -->
           <div class="col-index">{{ game.id}}</div>
           
