@@ -90,7 +90,7 @@ export const useGameStore = defineStore('game', () => {
       
       // 🌟 核心突破口：智能限流！
       // 如果是管理员，直接拉取 5000 条进内存，供后台零延迟分页、搜索和筛选！
-      const fetchLimit = isAdminLoggedIn.value ? 5000 : 2000; 
+      const fetchLimit = isAdminLoggedIn.value ? 10000 : 2000; 
       
       // 🌟 核心拆分：前台走公开通道，后台走专属鉴权通道
       let url = isAdminLoggedIn.value 
