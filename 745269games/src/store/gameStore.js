@@ -126,31 +126,48 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  // 2. 保存游戏
+  // 2. 保存游戏 (🌟 纯本地内存秒切版)
   const saveGame = async (gameData) => {
-    isLoading.value = true
     try {
       const isEdit = !!gameData.id
+      // 🌟 修复关键：后端没有 /api/admin 的保存接口，统一发往原版的 /api/games 即可！
       const url = isEdit ? `${API_BASE_URL}/api/games/${gameData.id}` : `${API_BASE_URL}/api/games`
+
       const method = isEdit ? 'PUT' : 'POST'
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(gameData)
-      })
+      const headers = { 'Content-Type': 'application/json' }
+      if (isAdminLoggedIn.value) {
+        headers['Authorization'] = `Bearer ${localStorage.getItem('745269_admin_token')}`
+      }
+
+      const response = await fetch(url, { method, headers, body: JSON.stringify(gameData) })
       const result = await response.json()
+      
       if (result.success) {
-        await fetchGames(false)
+        // 🌟 见证奇迹的时刻：直接在 Pinia 内存里光速洗牌！
+        const formattedData = parseGameData(gameData)
+
+        if (isEdit) {
+          // 【修改模式】：原地瞬间覆盖
+          const index = allGames.value.findIndex(g => g.id === gameData.id)
+          if (index !== -1) {
+            allGames.value[index] = { ...allGames.value[index], ...formattedData }
+          }
+        } else {
+          // 【上传模式】：塞入时间戳当假ID，插入首行
+          formattedData.id = Date.now() 
+          formattedData.system = { is_active: 1, created_at: new Date().toISOString() }
+          
+          allGames.value.unshift(formattedData)
+        }
+        
         return true 
       } else {
         throw new Error(result.error || '保存失败')
       }
     } catch (error) {
-      alert('保存失败: ' + error.message)
-      return false
-    } finally {
-      isLoading.value = false
+      console.error('保存失败:', error) // 如果再失败，浏览器 F12 控制台会打印红字报错
+      return false 
     }
   }
 

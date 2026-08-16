@@ -529,12 +529,13 @@ const handleRealSubmit = async () => {
     await gameStore.saveTags(finalGenresArray)
   }
 
+  // 提交数据给父组件或上层处理
   emit('submit', formData.value)
   handleClose()
 
-  setTimeout(() => {
-    window.location.reload()
-  }, 800)
+  // setTimeout(() => {
+  //   window.location.reload()
+  // }, 800)
 }
 
 </script>

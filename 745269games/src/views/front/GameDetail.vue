@@ -278,7 +278,7 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
 .middle-main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 30px; margin-bottom: 30px; }
 .left-info-column { display: flex; flex-direction: column; gap: 20px; }
 .poster-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-.poster-img { width: 100%; aspect-ratio: 0 / 4; object-fit: cover; border-radius: 12px; display: block; }
+.poster-img { width: 100%; aspect-ratio: 7 / 5; object-fit: cover; border-radius: 12px; display: block; }
 .poster-placeholder { width: 100%; aspect-ratio: 3 / 4; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .poster-badge-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .mini-badge { background: var(--bg-hover); color: var(--text-muted); font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main); }

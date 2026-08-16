@@ -30,6 +30,7 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/blawar/titledb/master/
 把文件名确认保存为 HK.zh.json 即可。
 
 国行表也是一样的操作，网址是：
+
 [https://raw.githubusercontent.com/blawar/titledb/master/CN.zh.json]
 (https://raw.githubusercontent.com/blawar/titledb/master/CN.zh.json)
 
