@@ -85,8 +85,8 @@
     <footer class="bottom-action-layout">
       <div class="interaction-bar-card">
         <div class="stats-left">
-          <span class="stat-item">🔥 下载量：<strong>{{ game.download_count || 0 }}</strong> 次</span>
-          <span class="stat-item">📅 上架时间：<strong>{{ formatDate(game.system?.created_at || game.created_at) }}</strong></span>
+          <span class="stat-item">🔥 下载量：<strong class="highlight-num">{{ game.download_count || 0 }}</strong> 次</span>
+          <span class="stat-item date-stat">📅 上架时间：<strong class="date-badge">{{ formatDate(game.system?.created_at || game.created_at) }}</strong></span>
         </div>
         <button class="like-action-btn" :class="{ liked: isLiked }" @click="handleInteraction('like')">
           <span class="like-icon">👍</span> 
@@ -95,9 +95,16 @@
         </button>
       </div>
 
-      <div class="resources-grid-row">
+      <!-- 🌟 升级：根据有无配置数据，动态切换 3列/2列 网格排版 -->
+      <div class="resources-grid-row" :class="hasSystemConfig ? 'grid-3-cols' : 'grid-2-cols'">
+        
+        <!-- 1. 网盘下载区 -->
         <div class="resource-card download-box">
-          <h3 class="card-head-title">⚡ 资源网盘下载</h3>
+          <div class="card-head-row">
+            <h3 class="card-head-title mb-0">⚡ 资源网盘下载</h3>
+            <div class="cloud-warning">⚠️ 网盘链接有可能会失效，请及时转存在自己网盘。</div>
+          </div>
+
           <div class="download-list" v-if="game.downloads && game.downloads.length > 0">
             <div v-for="(dl, idx) in game.downloads" :key="idx" class="dl-group-item">
               <div class="dl-plat-header">
@@ -122,6 +129,23 @@
           <div class="empty-hint" v-else>🔒 暂无可用下载资源</div>
         </div>
 
+        <!-- 2. 最低配置区 (🌟 判断：如果有数据才会渲染整个栏目) -->
+        <div class="resource-card sys-req-box" v-if="hasSystemConfig">
+          <h3 class="card-head-title">💻 最低运行配置</h3>
+          <div class="sys-req-content">
+            <template v-for="(dl, idx) in game.downloads" :key="'req-'+idx">
+              <div class="req-group" v-if="dl.minimum_config">
+                <div class="req-plat-tag">
+                  {{ dl.platform || '通用' }} <span class="req-edition" v-if="dl.edition">[{{ dl.edition }}]</span>
+                </div>
+                <!-- pre-line 保证真实的换行展示 -->
+                <div class="req-text">{{ dl.minimum_config }}</div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- 3. 玩家交流社区 -->
         <div class="resource-card forum-box">
           <h3 class="card-head-title">💬 玩家交流社区</h3>
           <div class="forum-content">
@@ -132,6 +156,7 @@
             </div>
           </div>
         </div>
+
       </div>
     </footer>
 
@@ -152,7 +177,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '@/store/gameStore'
-// 🌟 引入公共组件
 import FeedbackModal from '@/components/common/FeedbackModal.vue'
 
 const route = useRoute()
@@ -165,11 +189,8 @@ const isLiked = ref(false)
 
 const activeMediaIndex = ref(0)
 let bannerTimer = null
-
-// 🌟 控制反馈弹窗显示的开关
 const showFeedbackModal = ref(false)
 
-// 防抖与交互逻辑
 const interactState = { download: { timer: null, pending: false }, like: { timer: null, pending: false } }
 const handleInteraction = (type) => {
   if (!game.value) return
@@ -215,6 +236,12 @@ const mediaList = computed(() => {
 })
 const currentMedia = computed(() => mediaList.value[activeMediaIndex.value] || null)
 
+// 🌟 核心判断逻辑：检测 downloads 数组中是否有任意一个资源包含 minimum_config 字段并且有内容
+const hasSystemConfig = computed(() => {
+  if (!game.value || !game.value.downloads) return false
+  return game.value.downloads.some(d => d.minimum_config && String(d.minimum_config).trim() !== '')
+})
+
 const stopBannerTimer = () => { if (bannerTimer) { clearInterval(bannerTimer); bannerTimer = null } }
 const startBannerTimer = () => {
   stopBannerTimer()
@@ -252,13 +279,20 @@ onUnmounted(() => {
 })
 
 const goBack = () => { router.back() }
-const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-CN') : '未知时间' }
+
+const formatDate = (str) => {
+  if (!str) return '未知时间'
+  let cleanStr = str;
+  if (!str.includes('Z') && !str.includes('T')) cleanStr = str.replace(' ', 'T') + 'Z';
+  const d = new Date(cleanStr);
+  if (isNaN(d.getTime())) return '未知时间'
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+}
 </script>
 
 <style scoped>
 @import '@/assets/styles/theme.css';
 
-/* 这里的 CSS 就是之前精简后的，把那几十行弹窗的 CSS 全删掉了 */
 .game-detail-container { max-width: 1400px; margin: 0 auto; padding: 30px 20px 80px 20px; color: var(--text-main); }
 .detail-top-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--border-main); padding-bottom: 20px; margin-bottom: 30px; }
 .header-left-actions { display: flex; align-items: center; gap: 12px; }
@@ -288,39 +322,9 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
 .section-title { font-size: 18px; font-weight: 800; color: var(--text-heading); margin: 0 0 14px 0; border-bottom: 1px solid var(--border-main); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
 .playing-tag { font-size: 12px; color: #ec4899; background: rgba(236, 72, 153, 0.1); padding: 2px 10px; border-radius: 100px; }
 
-.desc-text { 
-  font-size: 14px; 
-  line-height: 1.7; 
-  color: var(--text-muted); 
-  white-space: pre-line; 
-  margin: 0 0 16px 0; 
-  word-break: break-word; 
-  
-  /* 基础状态：最多展示 4 行 */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4; 
-  overflow: hidden;
-  
-  /* 添加丝滑的展开过渡动画 */
-  transition: all 0.3s ease;
-}
-/* 💻 电脑端：保持4行折叠，鼠标悬浮显示原生黑色提示框 (Tooltip) */
-@media (min-width: 769px) {
-  .desc-text {
-    cursor: help; /* 鼠标放上去变成带问号的箭头，提示用户这里有说明信息 */
-  }
-}
-
-
-/* 📱 移动端：强制彻底解除隐藏，直接展示所有文本 */
-@media (max-width: 768px) {
-  .desc-text {
-    display: block; /* 恢复为普通块级元素，彻底摆脱 -webkit-box 限制 */
-    -webkit-line-clamp: unset; /* 取消行数限制 */
-    overflow: visible; /* 允许文字完整撑开高度 */
-  }
-}
+.desc-text { font-size: 14px; line-height: 1.7; color: var(--text-muted); white-space: pre-line; margin: 0 0 16px 0; word-break: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; transition: all 0.3s ease; }
+@media (min-width: 769px) { .desc-text { cursor: help; } }
+@media (max-width: 768px) { .desc-text { display: block; -webkit-line-clamp: unset; overflow: visible; } }
 
 .genre-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .genre-tag-pill { font-size: 12px; color: var(--color-primary); font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(37, 99, 235, 0.15); }
@@ -333,27 +337,10 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
 .fade-transition { animation: fadeIn 0.4s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0.6; transform: scale(1.02); } to { opacity: 1; transform: scale(1); } }
 .active-banner-img { width: 100%; height: 100%; object-fit: contain; }
-.image-counter { 
-  position: absolute; 
-  bottom: 240px; 
-  right: 12px; 
-  /* background: rgba(0,0,0,0.7);  */
-  color: #fff; padding: 4px 12px; 
-  border-radius: 20px; 
-  font-size: 12px; 
-  font-weight: 700; 
-  backdrop-filter: blur(4px); 
-  pointer-events: none; 
-}
+.image-counter { position: absolute; bottom: 240px; right: 12px; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; backdrop-filter: blur(4px); pointer-events: none; }
 .banner-placeholder { width: 100%; aspect-ratio: 16 / 9; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 
-.thumbnails-track { 
-  display: flex; 
-  gap: 10px; 
-  margin-top: 20px; 
-  overflow-x: auto; 
-  padding-bottom: 6px; 
-}
+.thumbnails-track { display: flex; gap: 10px; margin-top: 20px; overflow-x: auto; padding-bottom: 6px; }
 .thumbnails-track::-webkit-scrollbar { height: 6px; }
 .thumbnails-track::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 4px; }
 .thumb-item { width: 100px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; cursor: pointer; border: 3px solid transparent; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0; position: relative; }
@@ -368,14 +355,32 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
 
 .bottom-action-layout { display: flex; flex-direction: column; gap: 20px; }
 .interaction-bar-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
-.stats-left { display: flex; gap: 24px; font-size: 14px; color: var(--text-muted); }
-.stat-item strong { color: var(--text-heading); }
+.stats-left { display: flex; gap: 24px; font-size: 14px; color: var(--text-muted); align-items: center; }
+
+.highlight-num { color: #f59e0b; font-size: 16px; font-family: monospace;}
+.date-stat { display: flex; align-items: center; gap: 6px; }
+.date-badge { background: rgba(37, 99, 235, 0.08); color: var(--color-primary); padding: 4px 10px; border-radius: 8px; font-weight: 800; border: 1px solid rgba(37, 99, 235, 0.2); }
+
 .like-action-btn { background: var(--bg-hover); border: 2px solid var(--border-main); color: var(--text-heading); padding: 10px 24px; border-radius: 100px; font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .like-action-btn:hover { border-color: #ec4899; color: #ec4899; transform: scale(1.05); }
 .like-action-btn.liked { background: #ec4899; color: #fff; border-color: #ec4899; box-shadow: 0 6px 20px rgba(236, 72, 153, 0.3); }
 
-.resources-grid-row { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-.resource-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 24px; }
+/* 🌟 核心升级：资源容器基础样式 */
+.resources-grid-row { 
+  display: grid; 
+  gap: 20px; 
+}
+/* 🔥 当存在配置项时，展现完美的 3 列切割 */
+.grid-3-cols { grid-template-columns: 2.4fr 1.2fr 1fr; }
+/* 🔥 当没有任何配置项时，自动闭合为 2 列（让网盘占用2份宽，交流占用1份宽） */
+.grid-2-cols { grid-template-columns: 2fr 1fr; }
+
+.resource-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 24px; display: flex; flex-direction: column;}
+
+.card-head-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-main); padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+.card-head-row .card-head-title { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+.cloud-warning { background: rgba(245, 158, 11, 0.1); color: #d97706; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; border: 1px solid rgba(245, 158, 11, 0.2); display: flex; align-items: center; }
+
 .card-head-title { font-size: 18px; font-weight: 800; color: var(--text-heading); margin: 0 0 16px 0; border-bottom: 2px solid var(--border-main); padding-bottom: 10px; }
 .dl-group-item { background: var(--bg-hover); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border-main); }
 .dl-plat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px dashed var(--border-main); padding-bottom: 10px; }
@@ -394,6 +399,19 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
 .download-link-btn { background: var(--color-primary, #2563eb); color: #fff; text-decoration: none; padding: 6px 16px; border-radius: 8px; font-size: 13px; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2); }
 .download-link-btn:hover { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3); }
 
+/* 最低配置展示真实数据样式 */
+.sys-req-content { display: flex; flex-direction: column; gap: 16px; flex: 1; }
+.req-group { background: var(--bg-hover); border-radius: 12px; padding: 16px; border: 1px solid var(--border-light); }
+.req-plat-tag { font-size: 14px; font-weight: 900; color: var(--color-primary); margin-bottom: 10px; border-bottom: 1px dashed var(--border-main); padding-bottom: 8px; }
+.req-edition { color: var(--text-muted); font-size: 12px; font-weight: 700; margin-left: 6px;}
+.req-text { 
+  font-size: 13px; 
+  color: var(--text-main); 
+  line-height: 1.7; 
+  white-space: pre-line; 
+  word-break: break-word;
+}
+
 .forum-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
 .forum-btn { width: 100%; background: var(--bg-hover); border: 2px dashed var(--border-dark); color: var(--text-heading); padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; }
 .forum-btn:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--bg-card); }
@@ -405,6 +423,17 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
 .spinner { width: 2.5rem; height: 2.5rem; border: 3px solid var(--border-main); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem;}
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 💻 中等屏幕响应式处理 */
+@media (max-width: 1200px) {
+  /* 3列排版时：切成2列，让网盘下载独占上面一整行 */
+  .grid-3-cols { grid-template-columns: 1fr 1fr; }
+  .grid-3-cols .download-box { grid-column: span 2; }
+  
+  /* 2列排版时：稍微挤一挤，或者直接变成上下堆叠 */
+  .grid-2-cols { grid-template-columns: 1fr; }
+}
+
+/* 📱 手机屏幕：全部垂直单列显示 */
 @media (max-width: 768px) {
   .game-detail-container { padding: 16px 12px 60px 12px; }
   .detail-top-header { flex-direction: column; gap: 16px; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; }
@@ -422,9 +451,13 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
   .thumb-item { width: 80px; }
   .bottom-action-layout { gap: 16px; }
   .interaction-bar-card { flex-direction: column; gap: 12px; align-items: flex-start; padding: 16px; }
-  .stats-left { flex-direction: column; gap: 6px; font-size: 13px; width: 100%; }
+  .stats-left { flex-direction: column; gap: 6px; font-size: 13px; width: 100%; align-items: flex-start; }
   .like-action-btn { width: 100%; justify-content: center; font-size: 14px; padding: 12px; }
-  .resources-grid-row { grid-template-columns: 1fr; gap: 16px; }
+  
+  .resources-grid-row { grid-template-columns: 1fr !important; gap: 16px; }
+  .download-box { grid-column: span 1 !important; }
+  
+  .card-head-row { flex-direction: column; align-items: flex-start; }
   .dl-group-item { padding: 12px; }
   .dl-plat-header { flex-direction: column; align-items: flex-start; gap: 8px; }
   .source-row { flex-direction: column; align-items: flex-start; gap: 10px; border-bottom: 1px solid var(--border-light); padding-bottom: 12px; }
