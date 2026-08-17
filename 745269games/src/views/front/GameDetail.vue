@@ -34,7 +34,7 @@
         
         <div class="desc-card">
           <h3 class="section-title">📖 游戏简介</h3>
-          <p class="desc-text">{{ game.description || '暂无详细文字介绍...' }}</p>
+          <p class="desc-text" :title="game.description">{{ game.description || '暂无详细文字介绍...' }}</p>
 
           <div class="genre-tags-list" v-if="(game.aliases && game.aliases.length > 0) || (game.metadata?.genres && game.metadata.genres.length > 0)">
             <span v-for="(lang, idx) in game.aliases" :key="'lang-'+idx" class="lang-tag-pill">
@@ -276,9 +276,9 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
 .header-placeholder { width: 230px; }
 
 .middle-main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 30px; margin-bottom: 30px; }
-.left-info-column { display: flex; flex-direction: column; gap: 20px; }
+.left-info-column { display: flex; flex-direction: column; gap: 20px; min-width: 0;}
 .poster-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-.poster-img { width: 100%; aspect-ratio: 7 / 5; object-fit: cover; border-radius: 12px; display: block; }
+.poster-img { width: 100%; aspect-ratio: 8 / 6; object-fit: cover; border-radius: 12px; display: block; }
 .poster-placeholder { width: 100%; aspect-ratio: 3 / 4; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .poster-badge-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .mini-badge { background: var(--bg-hover); color: var(--text-muted); font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-main); }
@@ -287,25 +287,76 @@ const formatDate = (str) => { return str ? new Date(str).toLocaleDateString('zh-
 .desc-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; flex: 1; }
 .section-title { font-size: 18px; font-weight: 800; color: var(--text-heading); margin: 0 0 14px 0; border-bottom: 1px solid var(--border-main); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
 .playing-tag { font-size: 12px; color: #ec4899; background: rgba(236, 72, 153, 0.1); padding: 2px 10px; border-radius: 100px; }
-.desc-text { font-size: 14px; line-height: 1.7; color: var(--text-muted); white-space: pre-line; margin: 0 0 16px 0; }
+
+.desc-text { 
+  font-size: 14px; 
+  line-height: 1.7; 
+  color: var(--text-muted); 
+  white-space: pre-line; 
+  margin: 0 0 16px 0; 
+  word-break: break-word; 
+  
+  /* 基础状态：最多展示 4 行 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4; 
+  overflow: hidden;
+  
+  /* 添加丝滑的展开过渡动画 */
+  transition: all 0.3s ease;
+}
+/* 💻 电脑端：保持4行折叠，鼠标悬浮显示原生黑色提示框 (Tooltip) */
+@media (min-width: 769px) {
+  .desc-text {
+    cursor: help; /* 鼠标放上去变成带问号的箭头，提示用户这里有说明信息 */
+  }
+}
+
+
+/* 📱 移动端：强制彻底解除隐藏，直接展示所有文本 */
+@media (max-width: 768px) {
+  .desc-text {
+    display: block; /* 恢复为普通块级元素，彻底摆脱 -webkit-box 限制 */
+    -webkit-line-clamp: unset; /* 取消行数限制 */
+    overflow: visible; /* 允许文字完整撑开高度 */
+  }
+}
+
 .genre-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .genre-tag-pill { font-size: 12px; color: var(--color-primary); font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(37, 99, 235, 0.15); }
 .lang-tag-pill { font-size: 12px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.08); padding: 4px 10px; border-radius: 100px; border: 1px solid rgba(16, 185, 129, 0.2); }
 
-.right-banner-column { height: 100%; }
+.right-banner-column { height: 100%; min-width: 0;}
 .banner-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; height: 100%; display: flex; flex-direction: column; }
 .main-banner-viewer { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--border-main); }
 .bilibili-iframe { width: 100%; height: 100%; border: none; display: block; }
 .fade-transition { animation: fadeIn 0.4s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0.6; transform: scale(1.02); } to { opacity: 1; transform: scale(1); } }
 .active-banner-img { width: 100%; height: 100%; object-fit: contain; }
-.image-counter { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; backdrop-filter: blur(4px); pointer-events: none; }
+.image-counter { 
+  position: absolute; 
+  bottom: 240px; 
+  right: 12px; 
+  /* background: rgba(0,0,0,0.7);  */
+  color: #fff; padding: 4px 12px; 
+  border-radius: 20px; 
+  font-size: 12px; 
+  font-weight: 700; 
+  backdrop-filter: blur(4px); 
+  pointer-events: none; 
+}
 .banner-placeholder { width: 100%; aspect-ratio: 16 / 9; background: var(--bg-hover); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 
-.thumbnails-track { display: flex; gap: 12px; margin-top: 16px; overflow-x: auto; padding-bottom: 6px; }
+.thumbnails-track { 
+  display: flex; 
+  gap: 10px; 
+  margin-top: 20px; 
+  overflow-x: auto; 
+  padding-bottom: 6px; 
+}
 .thumbnails-track::-webkit-scrollbar { height: 6px; }
 .thumbnails-track::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 4px; }
-.thumb-item { width: 100px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; cursor: pointer; border: 2px solid transparent; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0; position: relative; }
+.thumb-item { width: 100px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; cursor: pointer; border: 3px solid transparent; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0; position: relative; }
 .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
 .thumb-item:hover { opacity: 0.9; }
 .thumb-item.active { border-color: var(--color-primary); opacity: 1; transform: scale(1.05); }

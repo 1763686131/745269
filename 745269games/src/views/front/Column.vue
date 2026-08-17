@@ -354,9 +354,19 @@ const loadMore = () => { gameStore.fetchGames(true, currentCategory.value.tags) 
 .game-grid-layout { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 32px; }
 .game-card { background: var(--bg-card); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, border-color 0.3s ease; cursor: pointer; border: 1px solid var(--border-light); }
 .game-card:hover { transform: translateY(-8px) scale(1.015); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1); border-color: var(--color-primary); }
-.card-image-wrapper { width: 100%; aspect-ratio: 16 / 9; position: relative; overflow: hidden; }
+
+
+.card-image-wrapper { 
+  width: 100%; 
+  aspect-ratio: 16 / 9; 
+  position: relative; 
+  overflow: hidden; 
+}
+
 .game-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
+
 .game-card:hover .game-cover-img { transform: scale(1.05); }
+
 .image-placeholder { width: 100%; height: 100%; background: var(--bg-hover); display: flex; align-items: center; justify-content: center; }
 .placeholder-text { color: var(--text-light); font-size: 14px; font-weight: 600; letter-spacing: 1px; }
 .rating-badge { position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.85); color: #fbbf24; padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: 800; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); }
