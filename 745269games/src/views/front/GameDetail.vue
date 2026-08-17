@@ -90,12 +90,11 @@
         </div>
         <button class="like-action-btn" :class="{ liked: isLiked }" @click="handleInteraction('like')">
           <span class="like-icon">👍</span> 
-          <span>{{ isLiked ? '已赞爆该游戏' : '给作者赞爆' }}</span>
+          <span>{{ isLiked ? '已赞爆该游戏' : '给游戏赞爆' }}</span>
           <span class="like-count">({{ game.likesCount || 0 }})</span>
         </button>
       </div>
 
-      <!-- 🌟 升级：根据有无配置数据，动态切换 3列/2列 网格排版 -->
       <div class="resources-grid-row" :class="hasSystemConfig ? 'grid-3-cols' : 'grid-2-cols'">
         
         <!-- 1. 网盘下载区 -->
@@ -117,7 +116,18 @@
               <div class="dl-sources" v-if="dl.sources && dl.sources.length > 0">
                 <div v-for="(src, sIdx) in dl.sources" :key="sIdx" class="source-row">
                   <span class="source-name">{{ src.name || '网盘直链' }}</span>
+                  
                   <div class="source-right">
+                    
+                    <!-- 🌟 核心修改：在点击扫码时，同时执行呼出弹窗和记录下载量的指令 -->
+                    <button 
+                      class="action-btn qr-btn" 
+                      v-if="src.qr_code" 
+                      @click="activeQrCode = src.qr_code; handleInteraction('download')"
+                    >
+                      📱 二维码资源
+                    </button>
+                    
                     <button class="action-btn copy-link" v-if="src.url" @click="handleCopy(src.url, '网盘链接')">🔗 复制链接</button>
                     <button class="action-btn copy-code" v-if="src.code || src.password" @click="handleCopy(src.code || src.password, '提取码')">📋 提取码: {{ src.code || src.password }}</button>
                     <a :href="src.url" target="_blank" class="download-link-btn" @click="handleInteraction('download')">直接前往</a>
@@ -129,7 +139,7 @@
           <div class="empty-hint" v-else>🔒 暂无可用下载资源</div>
         </div>
 
-        <!-- 2. 最低配置区 (🌟 判断：如果有数据才会渲染整个栏目) -->
+        <!-- 2. 最低配置区 -->
         <div class="resource-card sys-req-box" v-if="hasSystemConfig">
           <h3 class="card-head-title">💻 最低运行配置</h3>
           <div class="sys-req-content">
@@ -138,7 +148,6 @@
                 <div class="req-plat-tag">
                   {{ dl.platform || '通用' }} <span class="req-edition" v-if="dl.edition">[{{ dl.edition }}]</span>
                 </div>
-                <!-- pre-line 保证真实的换行展示 -->
                 <div class="req-text">{{ dl.minimum_config }}</div>
               </div>
             </template>
@@ -159,6 +168,18 @@
 
       </div>
     </footer>
+
+    <!-- 🌟 专属的居中二维码预览弹窗 -->
+    <transition name="modal-fade">
+      <div v-if="activeQrCode" class="qr-modal-overlay" @click.self="activeQrCode = null">
+        <div class="qr-modal-content">
+          <button class="qr-close-btn" @click="activeQrCode = null" title="关闭">✕</button>
+          
+          <img :src="activeQrCode" alt="资源二维码" class="qr-modal-img" />
+          <p class="qr-modal-tip">📱 请使用手机扫码转存</p>
+        </div>
+      </div>
+    </transition>
 
     <FeedbackModal 
       v-if="showFeedbackModal" 
@@ -190,6 +211,8 @@ const isLiked = ref(false)
 const activeMediaIndex = ref(0)
 let bannerTimer = null
 const showFeedbackModal = ref(false)
+
+const activeQrCode = ref(null)
 
 const interactState = { download: { timer: null, pending: false }, like: { timer: null, pending: false } }
 const handleInteraction = (type) => {
@@ -236,7 +259,6 @@ const mediaList = computed(() => {
 })
 const currentMedia = computed(() => mediaList.value[activeMediaIndex.value] || null)
 
-// 🌟 核心判断逻辑：检测 downloads 数组中是否有任意一个资源包含 minimum_config 字段并且有内容
 const hasSystemConfig = computed(() => {
   if (!game.value || !game.value.downloads) return false
   return game.value.downloads.some(d => d.minimum_config && String(d.minimum_config).trim() !== '')
@@ -365,14 +387,9 @@ const formatDate = (str) => {
 .like-action-btn:hover { border-color: #ec4899; color: #ec4899; transform: scale(1.05); }
 .like-action-btn.liked { background: #ec4899; color: #fff; border-color: #ec4899; box-shadow: 0 6px 20px rgba(236, 72, 153, 0.3); }
 
-/* 🌟 核心升级：资源容器基础样式 */
-.resources-grid-row { 
-  display: grid; 
-  gap: 20px; 
-}
-/* 🔥 当存在配置项时，展现完美的 3 列切割 */
+/* 🌟 资源容器基础样式 */
+.resources-grid-row { display: grid; gap: 20px; }
 .grid-3-cols { grid-template-columns: 2.4fr 1.2fr 1fr; }
-/* 🔥 当没有任何配置项时，自动闭合为 2 列（让网盘占用2份宽，交流占用1份宽） */
 .grid-2-cols { grid-template-columns: 2fr 1fr; }
 
 .resource-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 24px; display: flex; flex-direction: column;}
@@ -387,11 +404,19 @@ const formatDate = (str) => {
 .dl-plat-tag { font-size: 15px; font-weight: 900; color: var(--color-primary); }
 .dl-meta-info { display: flex; gap: 8px; flex-wrap: wrap; }
 .dl-meta-badge { font-size: 12px; background: var(--bg-card); color: var(--text-muted); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-light); font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+
+/* 🌟 网盘下载行结构恢复为纯按钮在一行 */
 .source-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-radius: 8px; transition: 0.2s; }
 .source-name { font-size: 14px; font-weight: 800; color: var(--text-main); }
 .source-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
 .action-btn { background: var(--bg-card); padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; border: 1px solid var(--border-main); color: var(--text-muted); display: inline-flex; align-items: center; }
 .action-btn:hover { transform: translateY(-1px); }
+
+/* 📱 扫码按钮专属样式 */
+.qr-btn { color: #a855f7; border-color: rgba(168, 85, 247, 0.2); background: rgba(168, 85, 247, 0.05); }
+.qr-btn:hover { background: #a855f7; color: #fff; }
+
 .copy-link { color: #10b981; border-color: rgba(16, 185, 129, 0.2); background: rgba(16, 185, 129, 0.05); }
 .copy-link:hover { background: #10b981; color: #fff; }
 .copy-code { color: var(--color-pink); border-color: rgba(236, 72, 153, 0.2); background: rgba(236, 72, 153, 0.05); }
@@ -399,18 +424,46 @@ const formatDate = (str) => {
 .download-link-btn { background: var(--color-primary, #2563eb); color: #fff; text-decoration: none; padding: 6px 16px; border-radius: 8px; font-size: 13px; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2); }
 .download-link-btn:hover { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3); }
 
+/* 🌟 二维码专属居中点击弹窗 */
+.qr-modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(5px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99999;
+}
+.qr-modal-content {
+  background: #ffffff; padding: 24px; border-radius: 20px;
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+}
+.qr-close-btn {
+  position: absolute; top: -14px; right: -14px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #ef4444; color: #fff; border: 2px solid #fff;
+  font-size: 16px; font-weight: bold; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: 0.2s; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  padding: 0; outline: none;
+}
+.qr-close-btn:hover { transform: scale(1.1) rotate(90deg); }
+.qr-modal-img { 
+  width: 220px; height: 220px; object-fit: contain; 
+  margin-bottom: 16px; border-radius: 8px; 
+  border: 1px solid #e2e8f0; padding: 8px;
+}
+.qr-modal-tip { font-size: 15px; font-weight: 900; color: #334155; margin: 0; letter-spacing: 0.5px;}
+
+/* 弹窗滑入滑出动画 */
+.modal-fade-enter-active, .modal-fade-leave-active { transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; transform: scale(0.95); }
+
+
 /* 最低配置展示真实数据样式 */
 .sys-req-content { display: flex; flex-direction: column; gap: 16px; flex: 1; }
 .req-group { background: var(--bg-hover); border-radius: 12px; padding: 16px; border: 1px solid var(--border-light); }
 .req-plat-tag { font-size: 14px; font-weight: 900; color: var(--color-primary); margin-bottom: 10px; border-bottom: 1px dashed var(--border-main); padding-bottom: 8px; }
 .req-edition { color: var(--text-muted); font-size: 12px; font-weight: 700; margin-left: 6px;}
-.req-text { 
-  font-size: 13px; 
-  color: var(--text-main); 
-  line-height: 1.7; 
-  white-space: pre-line; 
-  word-break: break-word;
-}
+.req-text { font-size: 13px; color: var(--text-main); line-height: 1.7; white-space: pre-line; word-break: break-word; }
 
 .forum-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
 .forum-btn { width: 100%; background: var(--bg-hover); border: 2px dashed var(--border-dark); color: var(--text-heading); padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; }
@@ -425,11 +478,8 @@ const formatDate = (str) => {
 
 /* 💻 中等屏幕响应式处理 */
 @media (max-width: 1200px) {
-  /* 3列排版时：切成2列，让网盘下载独占上面一整行 */
   .grid-3-cols { grid-template-columns: 1fr 1fr; }
   .grid-3-cols .download-box { grid-column: span 2; }
-  
-  /* 2列排版时：稍微挤一挤，或者直接变成上下堆叠 */
   .grid-2-cols { grid-template-columns: 1fr; }
 }
 
@@ -461,7 +511,7 @@ const formatDate = (str) => {
   .dl-group-item { padding: 12px; }
   .dl-plat-header { flex-direction: column; align-items: flex-start; gap: 8px; }
   .source-row { flex-direction: column; align-items: flex-start; gap: 10px; border-bottom: 1px solid var(--border-light); padding-bottom: 12px; }
-  .source-name { font-size: 14px; font-weight: 800; }
+  .source-name { font-size: 14px; font-weight: 800; margin-top: 0;}
   .source-right { justify-content: flex-start; width: 100%; gap: 8px; }
   .action-btn, .download-link-btn { font-size: 12px; padding: 8px 12px; flex: 1; text-align: center; justify-content: center; }
 }
