@@ -3,9 +3,8 @@
     <div class="action-bar">
       <button class="btn-upload" @click="openAddModal">上传游戏</button>
       
-      <!-- 🌟 新增：平台赛选滑块 -->
+      <!-- 🌟 平台赛选滑块 -->
       <div class="platform-slider">
-        <!-- 物理背景滑块 (根据选中的平台动态滑动) -->
         <div class="slider-bg" :class="filterPlatform.toLowerCase()"></div>
         <button :class="{ active: filterPlatform === 'all' }" @click="filterPlatform = 'all'">全平台</button>
         <button :class="{ active: filterPlatform === 'Switch' }" @click="filterPlatform = 'Switch'">Switch</button>
@@ -14,12 +13,21 @@
         <button :class="{ active: filterPlatform === 'PS5' }" @click="filterPlatform = 'PS5'">PS5</button>
       </div>
 
-      <!-- 🌟 原有：上下架状态筛选滑块 -->
+      <!-- 🌟 上下架状态筛选滑块 -->
       <div class="status-slider">
         <div class="slider-bg" :class="filterStatus"></div>
         <button :class="{ active: filterStatus === 'all' }" @click="filterStatus = 'all'">全部</button>
         <button :class="{ active: filterStatus === 'published' }" @click="filterStatus = 'published'">已上架</button>
         <button :class="{ active: filterStatus === 'unpublished' }" @click="filterStatus = 'unpublished'">已下架</button>
+      </div>
+
+    <!-- 🌟 新增：今日工作量统计面板 (滑块同款UI) -->
+      <div class="daily-op-counter" title="记录今日上传/修改数量，过12点自动清零，同一游戏重复修改不叠加">
+        <span class="op-label">今日进度</span>
+        <div class="op-value-bg">
+          <span class="op-number">{{ dailyOpCount }}</span>
+          <span class="op-unit">项</span>
+        </div>
       </div>
     </div>
 
@@ -102,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue' // 🌟 引入 onMounted
 import { useGameStore } from '@/store/gameStore'
 import GameFormModal from '@/components/admin/GameFormModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
@@ -130,30 +138,65 @@ const gameStore = useGameStore()
 const isModalVisible = ref(false)
 const currentEditData = ref(null)
 
-// 🌟 过滤器标识
 const filterStatus = ref('all')
-const filterPlatform = ref('all') // 🌟 新增：平台过滤器
+const filterPlatform = ref('all') 
 
-// 🌟 监听：只要状态、平台或搜索关键词任何一个发生变化，就自动切回第一页
+// ==========================================
+// 🌟 新增核心：今日工作量统计引擎 (纯本地)
+// ==========================================
+const dailyOpCount = ref(0)
+let processedIds = [] // 存放在内存里的去重 ID 数组
+
+// 校验是否过12点并初始化数据
+const checkAndResetDailyCounter = () => {
+  const today = new Date().toLocaleDateString() // 格式如：2026/8/19
+  const stored = JSON.parse(localStorage.getItem('admin_daily_op') || '{}')
+  
+  // 核心：如果存储的日期不是今天，代表过了晚上 12 点，立刻重置清空！
+  if (stored.date !== today) {
+    processedIds = []
+    localStorage.setItem('admin_daily_op', JSON.stringify({ date: today, ids: [] }))
+    dailyOpCount.value = 0
+  } else {
+    processedIds = stored.ids || []
+    dailyOpCount.value = processedIds.length
+  }
+}
+
+// 记录一次成功操作
+const recordDailyOp = (gameId) => {
+  checkAndResetDailyCounter() // 每次记录前都防御性检查一次是否跨天了
+  
+  // 去重逻辑：如果这个游戏 ID 之前没被记录过，才计入
+  if (!processedIds.includes(gameId)) {
+    processedIds.push(gameId)
+    const today = new Date().toLocaleDateString()
+    localStorage.setItem('admin_daily_op', JSON.stringify({ date: today, ids: processedIds }))
+    dailyOpCount.value = processedIds.length
+  }
+}
+
+// 页面一加载就校验展示
+onMounted(() => {
+  checkAndResetDailyCounter()
+})
+// ==========================================
+
 watch([filterStatus, filterPlatform, () => props.activeSearchKeyword], () => {
   currentPage.value = 1
 })
 
-// 🌟 本地双重拦截过滤引擎
 const displayedData = computed(() => {
   const baseData = props.activeSearchKeyword ? props.adminSearchResults : gameStore.allGames
   let formattedData = gameStore.formatAdminTableData(baseData)
 
-  // 1. 先进行【平台筛选】
   if (filterPlatform.value !== 'all') {
     formattedData = formattedData.filter(game => {
       const pTags = game.platforms || []
-      // 忽略大小写匹配，只要包含该平台即可
       return pTags.some(tag => tag.toUpperCase().includes(filterPlatform.value.toUpperCase()))
     })
   }
 
-  // 2. 再进行【上下架状态筛选】 (实现完美联动交集)
   if (filterStatus.value === 'published') {
     formattedData = formattedData.filter(game => game.isActive === true)
   } else if (filterStatus.value === 'unpublished') {
@@ -176,10 +219,16 @@ const openEditModal = (gameId) => {
   isModalVisible.value = true        
 }
 
+// 🌟 这里触发成功后的计数！
 const handleSave = async (formData) => {
   const isEditMode = !!formData.id
   const success = await gameStore.saveGame(formData)
+  
   if (success) {
+    // 🌟 记录到本地存储计数器中 (如果是新上传没有ID，就给它生成一个随机唯一标记记录进去)
+    const uniqueId = formData.id || `upload_${Date.now()}`
+    recordDailyOp(uniqueId)
+
     confirmModalRef.value?.showToast(
       isEditMode ? '游戏配置已成功修改并同步！' : '新游戏已成功入库并发布！', 
       'success'
@@ -254,15 +303,56 @@ const getDiskClass = (diskName) => {
   justify-content: flex-start; 
   align-items: center; 
   gap: 24px; 
-  flex-wrap: wrap; /* 如果屏幕不够宽自动换行 */
+  flex-wrap: wrap;
 }
 
 .btn-upload { background: linear-gradient(135deg, var(--color-admin-primary, #2DD4BF) 0%, var(--color-admin-hover, #34D399) 100%); color: #ffffff; font-size: 16px; font-weight: 800; border: none; padding: 12px 36px; border-radius: 100px; cursor: pointer; box-shadow: 0 8px 20px -6px rgba(52, 211, 153, 0.5); transition: all 0.2s ease; }
 .btn-upload:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(52, 211, 153, 0.6); }
 
 /* =======================================
-   🌟 状态滑块 (全/上/下)
+   🌟 每日工作量统计样式面板 (统一滑块风格)
 ======================================= */
+.daily-op-counter {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--bg-hover, #F1F5F9); /* 和滑块一样的凹槽底色 */
+  border-radius: 100px;
+  padding: 4px; /* 和滑块一样的内边距 */
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04); /* 和滑块一样的内阴影 */
+  cursor: default;
+}
+
+.op-label {
+  padding: 0 12px 0 12px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-light, #94A3B8); /* 和滑块未选中时一样的灰色文字 */
+}
+
+.op-value-bg {
+  display: inline-flex;
+  align-items: baseline;
+  background-color: var(--bg-card, #FFFFFF); /* 和滑块选中时一样的纯白滑块 */
+  border-radius: 100px;
+  padding: 4px 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* 滑块同款立体阴影 */
+}
+
+.op-number {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--color-admin-primary, #10B981); /* 醒目的主题绿 */
+  line-height: 1;
+}
+
+.op-unit {
+  font-size: 12px;
+  margin-left: 4px;
+  font-weight: 800;
+  color: var(--text-light, #94A3B8);
+}
+
 .status-slider {
   position: relative;
   display: inline-flex;
@@ -308,9 +398,6 @@ const getDiskClass = (diskName) => {
 .status-slider .slider-bg.published { transform: translateX(90px); }
 .status-slider .slider-bg.unpublished { transform: translateX(180px); }
 
-/* =======================================
-   🌟 平台滑块 (All/Switch/PC/PS4/PS5)
-======================================= */
 .platform-slider {
   position: relative;
   display: inline-flex;
@@ -325,7 +412,7 @@ const getDiskClass = (diskName) => {
   z-index: 2;
   background: transparent;
   border: none;
-  width: 80px; /* 平台文字较短，宽度设为 80px */
+  width: 80px; 
   height: 36px;
   border-radius: 100px;
   font-size: 14px;
@@ -352,14 +439,12 @@ const getDiskClass = (diskName) => {
   z-index: 1;
 }
 
-/* 平台背景滑动计算 (80px一格) */
 .platform-slider .slider-bg.all { transform: translateX(0); }
 .platform-slider .slider-bg.switch { transform: translateX(80px); }
 .platform-slider .slider-bg.pc { transform: translateX(160px); }
 .platform-slider .slider-bg.ps4 { transform: translateX(240px); }
 .platform-slider .slider-bg.ps5 { transform: translateX(320px); }
 
-/* ======================================= */
 
 .data-card { background-color: var(--bg-card, #FFFFFF); border-radius: 16px; padding: 32px; border: 1px solid var(--border-light, #F1F5F9); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); }
 .card-title { font-size: 18px; font-weight: 800; color: var(--text-heading, #1E293B); margin-bottom: 24px; text-align: left; }
