@@ -3,23 +3,23 @@
     <div class="action-bar">
       <button class="btn-upload" @click="openAddModal">上传游戏</button>
       
-      <!-- 🌟 新增：动态丝滑筛选滑块 -->
+      <!-- 🌟 新增：平台赛选滑块 -->
+      <div class="platform-slider">
+        <!-- 物理背景滑块 (根据选中的平台动态滑动) -->
+        <div class="slider-bg" :class="filterPlatform.toLowerCase()"></div>
+        <button :class="{ active: filterPlatform === 'all' }" @click="filterPlatform = 'all'">全平台</button>
+        <button :class="{ active: filterPlatform === 'Switch' }" @click="filterPlatform = 'Switch'">Switch</button>
+        <button :class="{ active: filterPlatform === 'PC' }" @click="filterPlatform = 'PC'">PC</button>
+        <button :class="{ active: filterPlatform === 'PS4' }" @click="filterPlatform = 'PS4'">PS4</button>
+        <button :class="{ active: filterPlatform === 'PS5' }" @click="filterPlatform = 'PS5'">PS5</button>
+      </div>
+
+      <!-- 🌟 原有：上下架状态筛选滑块 -->
       <div class="status-slider">
-        <!-- 物理背景滑块 -->
         <div class="slider-bg" :class="filterStatus"></div>
-        <!-- 三个状态选项 -->
-        <button 
-          :class="{ active: filterStatus === 'all' }" 
-          @click="filterStatus = 'all'"
-        >全部</button>
-        <button 
-          :class="{ active: filterStatus === 'published' }" 
-          @click="filterStatus = 'published'"
-        >已上架</button>
-        <button 
-          :class="{ active: filterStatus === 'unpublished' }" 
-          @click="filterStatus = 'unpublished'"
-        >已下架</button>
+        <button :class="{ active: filterStatus === 'all' }" @click="filterStatus = 'all'">全部</button>
+        <button :class="{ active: filterStatus === 'published' }" @click="filterStatus = 'published'">已上架</button>
+        <button :class="{ active: filterStatus === 'unpublished' }" @click="filterStatus = 'unpublished'">已下架</button>
       </div>
     </div>
 
@@ -36,9 +36,7 @@
         <div class="col-actions">管理</div>
       </div>
 
-      <!-- 🌟 核心修改：v-for 改为遍历分页后的数据 paginatedData -->
       <div class="table-row" v-for="(game) in paginatedData" :key="game.id">
-        <!-- 🌟 渲染序号 -->
         <div class="col-index">{{ game.id }}</div>
         
         <div class="col-game game-info">
@@ -76,7 +74,6 @@
 
         <div class="col-actions btn-group">
           <button class="btn-modify" @click="openEditModal(game.id)">修改</button>
-          <!-- 🌟 双状态上下架按钮 -->
           <button 
             :class="game.isActive ? 'btn-delete' : 'btn-publish'" 
             @click="handleToggleStatus(game.id, game.isActive)"
@@ -86,13 +83,10 @@
         </div>
       </div>
       
-      <!-- 🌟 无数据空状态兜底 -->
       <div v-if="paginatedData.length === 0" class="loading-tip">
-        暂无符合该状态的游戏数据
+        暂无符合该多重筛选条件的游戏数据
       </div>
 
-      <!-- 🌟 引入刚封装的公共分页组件 -->
-      <!-- 这里传给总条数的是 displayedData.length (当前筛选条件下的总数) -->
       <Pagination 
         v-model:currentPage="currentPage" 
         :totalItems="displayedData.length" 
@@ -101,64 +95,65 @@
 
     </div>
     
-    <!-- 游戏表单弹窗 -->
     <GameFormModal :visible="isModalVisible" :gameData="currentEditData" @update:visible="isModalVisible = $event" @submit="handleSave"/>
     
-    <ConfirmModal ref="confirmModalRef" :visible="showConfirm" :title="confirmConfig.title" :message="confirmConfig.message" :type="confirmConfig.type" @update:visible="showConfirm = $event" @confirm="executeToggle"
-    />
+    <ConfirmModal ref="confirmModalRef" :visible="showConfirm" :title="confirmConfig.title" :message="confirmConfig.message" :type="confirmConfig.type" @update:visible="showConfirm = $event" @confirm="executeToggle" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue' // 🌟 引入 watch
+import { ref, computed, watch } from 'vue'
 import { useGameStore } from '@/store/gameStore'
 import GameFormModal from '@/components/admin/GameFormModal.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
-import Pagination from '@/components/common/Pagination.vue' // 🌟 引入分页组件
+import Pagination from '@/components/common/Pagination.vue'
 
-// 接收父框架传来的搜索数据
 const props = defineProps({
   activeSearchKeyword: { type: String, default: '' },
   adminSearchResults: { type: Array, default: () => [] }
 })
 
-// 🌟 新增：分页相关的状态变量
 const currentPage = ref(1)
-const pageSize = 50 // 默认每页展示50条数据
+const pageSize = 50 
 
 const showConfirm = ref(false)
-
 const confirmModalRef = ref(null)
 const confirmConfig = ref({
   title: '',
   message: '',
   type: 'primary',
-  idToProcess: null,     // 记录是哪个数据被点击了
-  statusToProcess: null  // 记录是要上架还是下架
+  idToProcess: null,
+  statusToProcess: null
 })
-
 
 const gameStore = useGameStore()
 const isModalVisible = ref(false)
 const currentEditData = ref(null)
 
-// 🌟 新增：状态过滤器标识 ('all', 'published', 'unpublished')
+// 🌟 过滤器标识
 const filterStatus = ref('all')
+const filterPlatform = ref('all') // 🌟 新增：平台过滤器
 
-// 🌟 监听过滤状态或搜索关键词的变化，只要发生变化，就自动切回第一页！
-watch([filterStatus, () => props.activeSearchKeyword], () => {
+// 🌟 监听：只要状态、平台或搜索关键词任何一个发生变化，就自动切回第一页
+watch([filterStatus, filterPlatform, () => props.activeSearchKeyword], () => {
   currentPage.value = 1
 })
 
-// 🌟 原始计算属性：带有本地拦截过滤功能的 displayedData (表示所有的满足条件的数据总池)
+// 🌟 本地双重拦截过滤引擎
 const displayedData = computed(() => {
-  // 1. 确定数据源
   const baseData = props.activeSearchKeyword ? props.adminSearchResults : gameStore.allGames
-  
-  // 2. 先清洗格式化
   let formattedData = gameStore.formatAdminTableData(baseData)
 
-  // 3. 本地零延迟过滤：拦截未命中状态的数据
+  // 1. 先进行【平台筛选】
+  if (filterPlatform.value !== 'all') {
+    formattedData = formattedData.filter(game => {
+      const pTags = game.platforms || []
+      // 忽略大小写匹配，只要包含该平台即可
+      return pTags.some(tag => tag.toUpperCase().includes(filterPlatform.value.toUpperCase()))
+    })
+  }
+
+  // 2. 再进行【上下架状态筛选】 (实现完美联动交集)
   if (filterStatus.value === 'published') {
     formattedData = formattedData.filter(game => game.isActive === true)
   } else if (filterStatus.value === 'unpublished') {
@@ -168,11 +163,9 @@ const displayedData = computed(() => {
   return formattedData
 })
 
-// 🌟 新增计算属性：本地分页切割引擎 (只取当前页的 50 条去渲染)
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize
   const end = start + pageSize
-  // 从总的过滤数据中，切出一块当前页需要展示的数据
   return displayedData.value.slice(start, end)
 })
 
@@ -187,13 +180,13 @@ const handleSave = async (formData) => {
   const isEditMode = !!formData.id
   const success = await gameStore.saveGame(formData)
   if (success) {
-    // 🌟 无感顶部 Toast 提示成功，彻底告别浏览器原生 alert！
     confirmModalRef.value?.showToast(
       isEditMode ? '游戏配置已成功修改并同步！' : '新游戏已成功入库并发布！', 
       'success'
     )
   }
 }
+
 const formatTags = (tags) => {
   if (!tags || tags.length === 0) return []
   return tags.join(',').split(/,|，/).map(t => t.trim()).filter(Boolean)
@@ -218,7 +211,6 @@ const getVersionedDisks = (gameId) => {
   return result
 }
 
-// 🌟 2. 覆盖你原来的：现在点击按钮，只负责“唤起弹窗”并传入数据
 const handleToggleStatus = (id, currentStatus) => {
   const newStatus = currentStatus ? 0 : 1; 
   const actionName = newStatus === 1 ? '上架' : '下架';
@@ -226,22 +218,19 @@ const handleToggleStatus = (id, currentStatus) => {
   confirmConfig.value = {
     title: `${actionName}确认`,
     message: `确定要将该游戏【${actionName}】吗？`,
-    type: newStatus === 1 ? 'primary' : 'danger', // 上架用蓝绿主题，下架用红色警告主题
+    type: newStatus === 1 ? 'primary' : 'danger',
     idToProcess: id,
     statusToProcess: newStatus
   }
-  showConfirm.value = true // 弹出组件！
+  showConfirm.value = true 
 }
 
-// 🌟 3. 新增：当在弹窗里点击“确定”时，真正执行后端的请求
 const executeToggle = async () => {
   const { idToProcess, statusToProcess } = confirmConfig.value;
   const actionName = statusToProcess === 1 ? '上架' : '下架';
 
   const success = await gameStore.toggleGameStatus(idToProcess, statusToProcess);
   if (success) {
-    // 🌟 直接调用组件里的 showToast 方法！
-    // 第一个参数是文字，第二个参数是颜色风格 ('success' 或 'danger')
     confirmModalRef.value.showToast(`操作成功，该游戏已${actionName}！`, statusToProcess === 1 ? 'success' : 'danger');
   }
 }
@@ -256,7 +245,6 @@ const getDiskClass = (diskName) => {
 </script>
 
 <style scoped>
-/* 样式保留你原本的写法，不需要任何变动 */
 .game-manager-container { width: 100%; }
 
 .action-bar { 
@@ -266,11 +254,15 @@ const getDiskClass = (diskName) => {
   justify-content: flex-start; 
   align-items: center; 
   gap: 24px; 
+  flex-wrap: wrap; /* 如果屏幕不够宽自动换行 */
 }
 
 .btn-upload { background: linear-gradient(135deg, var(--color-admin-primary, #2DD4BF) 0%, var(--color-admin-hover, #34D399) 100%); color: #ffffff; font-size: 16px; font-weight: 800; border: none; padding: 12px 36px; border-radius: 100px; cursor: pointer; box-shadow: 0 8px 20px -6px rgba(52, 211, 153, 0.5); transition: all 0.2s ease; }
 .btn-upload:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -6px rgba(52, 211, 153, 0.6); }
 
+/* =======================================
+   🌟 状态滑块 (全/上/下)
+======================================= */
 .status-slider {
   position: relative;
   display: inline-flex;
@@ -299,7 +291,7 @@ const getDiskClass = (diskName) => {
   color: var(--color-admin-primary, #10B981);
 }
 
-.slider-bg {
+.status-slider .slider-bg {
   position: absolute;
   top: 4px;
   left: 4px;
@@ -312,9 +304,62 @@ const getDiskClass = (diskName) => {
   z-index: 1;
 }
 
-.slider-bg.all { transform: translateX(0); }
-.slider-bg.published { transform: translateX(90px); }
-.slider-bg.unpublished { transform: translateX(180px); }
+.status-slider .slider-bg.all { transform: translateX(0); }
+.status-slider .slider-bg.published { transform: translateX(90px); }
+.status-slider .slider-bg.unpublished { transform: translateX(180px); }
+
+/* =======================================
+   🌟 平台滑块 (All/Switch/PC/PS4/PS5)
+======================================= */
+.platform-slider {
+  position: relative;
+  display: inline-flex;
+  background-color: var(--bg-hover, #F1F5F9);
+  border-radius: 100px;
+  padding: 4px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.platform-slider button {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  border: none;
+  width: 80px; /* 平台文字较短，宽度设为 80px */
+  height: 36px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-light, #94A3B8);
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.platform-slider button.active {
+  color: var(--color-admin-primary, #10B981);
+}
+
+.platform-slider .slider-bg {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 80px;
+  height: 36px;
+  background-color: var(--bg-card, #FFFFFF);
+  border-radius: 100px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1;
+}
+
+/* 平台背景滑动计算 (80px一格) */
+.platform-slider .slider-bg.all { transform: translateX(0); }
+.platform-slider .slider-bg.switch { transform: translateX(80px); }
+.platform-slider .slider-bg.pc { transform: translateX(160px); }
+.platform-slider .slider-bg.ps4 { transform: translateX(240px); }
+.platform-slider .slider-bg.ps5 { transform: translateX(320px); }
+
+/* ======================================= */
 
 .data-card { background-color: var(--bg-card, #FFFFFF); border-radius: 16px; padding: 32px; border: 1px solid var(--border-light, #F1F5F9); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); }
 .card-title { font-size: 18px; font-weight: 800; color: var(--text-heading, #1E293B); margin-bottom: 24px; text-align: left; }
@@ -361,8 +406,5 @@ const getDiskClass = (diskName) => {
 .btn-delete { background-color: var(--color-orange, #F97316); box-shadow: 0 4px 10px -2px rgba(249, 115, 22, 0.3); }
 .btn-delete:hover { opacity: 0.9; }
 
-.load-more-wrapper { display: flex; justify-content: center; padding: 30px 0 10px 0; }
-.btn-load-more { background: var(--bg-hover, #F8FAFC); border: 1px solid var(--border-dark, #CBD5E1); color: var(--text-main, #334155); padding: 10px 32px; border-radius: 100px; font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s ease; }
-.btn-load-more:hover { background: var(--bg-card, #F1F5F9); border-color: var(--color-admin-primary, #94A3B8); color: var(--color-admin-primary); }
 .loading-tip { text-align: center; padding: 40px; color: var(--text-light, #94A3B8); font-weight: 600; }
 </style>
