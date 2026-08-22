@@ -33,73 +33,81 @@
 
     <div class="data-card">
       <h2 class="card-title">游戏列表</h2>
-      <div class="table-header">
-        <div class="col-index">序号</div>
-        <div class="col-game">游戏</div>
-        <div class="col-date">上架日期</div>
-        <div class="col-platform">平台</div>
-        <div class="col-cat">分类</div> 
-        <div class="col-disk">网盘资源</div> 
-        <div class="col-downloads">真实下载量</div> 
-        <div class="col-actions">管理</div>
+
+      <div v-if="gameStore.isLoading && gameStore.allGames.length === 0" class="loading-state">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">游戏数据量较大，正在努力加载中，请稍候...</p>
       </div>
 
-      <div class="table-row" v-for="(game) in paginatedData" :key="game.id">
-        <div class="col-index">{{ game.id }}</div>
-        
-        <div class="col-game game-info">
-          <img :src="game.cover" class="game-cover" alt="cover">
-          <div class="game-text">
-            <h3>{{ game.nameZh }}</h3>
-            <p>{{ game.nameEn }}</p>
-          </div>
-        </div>
-        <div class="col-date date-text">{{ game.date }}</div>
-        
-        <div class="col-platform cat-text">
-          <strong v-for="plat in game.platforms" :key="plat">{{ plat }} </strong>
-          <span v-if="!game.platforms || game.platforms.length === 0" class="empty-text">-</span>
-        </div>
-        
-        <div class="col-cat">
-          <div class="cat-tags-grid">
-            <span v-for="(tag, tIdx) in formatTags(game.tags)" :key="tIdx" class="cat-tag">[{{ tag }}]</span>
-          </div>
-          <span v-if="formatTags(game.tags).length === 0" class="empty-text">-</span>
+      <template v-else>
+        <div class="table-header">
+          <div class="col-index">序号</div>
+          <div class="col-game">游戏</div>
+          <div class="col-date">上架日期</div>
+          <div class="col-platform">平台</div>
+          <div class="col-cat">分类</div>
+          <div class="col-disk">网盘资源</div>
+          <div class="col-downloads">真实下载量</div>
+          <div class="col-actions">管理</div>
         </div>
 
-        <div class="col-disk version-disk-list">
-          <div v-for="(versionGroup, idx) in getVersionedDisks(game.id)" :key="idx" class="version-disk-item">
-            <div class="version-label"><span class="dot">•</span>{{ versionGroup.versionLabel }}</div>
-            <div class="disk-tags-small">
-              <span v-for="disk in versionGroup.disks" :key="disk" :class="['disk-tag', getDiskClass(disk)]">[{{ disk }}]</span>
+        <div class="table-row" v-for="(game) in paginatedData" :key="game.id">
+          <div class="col-index">{{ game.id }}</div>
+
+          <div class="col-game game-info">
+            <img :src="game.cover" class="game-cover" alt="cover">
+            <div class="game-text">
+              <h3>{{ game.nameZh }}</h3>
+              <p>{{ game.nameEn }}</p>
             </div>
           </div>
-          <span v-if="getVersionedDisks(game.id).length === 0" class="empty-text">-</span>
+          <div class="col-date date-text">{{ game.date }}</div>
+
+          <div class="col-platform cat-text">
+            <strong v-for="plat in game.platforms" :key="plat">{{ plat }} </strong>
+            <span v-if="!game.platforms || game.platforms.length === 0" class="empty-text">-</span>
+          </div>
+
+          <div class="col-cat">
+            <div class="cat-tags-grid">
+              <span v-for="(tag, tIdx) in formatTags(game.tags)" :key="tIdx" class="cat-tag">[{{ tag }}]</span>
+            </div>
+            <span v-if="formatTags(game.tags).length === 0" class="empty-text">-</span>
+          </div>
+
+          <div class="col-disk version-disk-list">
+            <div v-for="(versionGroup, idx) in getVersionedDisks(game.id)" :key="idx" class="version-disk-item">
+              <div class="version-label"><span class="dot">•</span>{{ versionGroup.versionLabel }}</div>
+              <div class="disk-tags-small">
+                <span v-for="disk in versionGroup.disks" :key="disk" :class="['disk-tag', getDiskClass(disk)]">[{{ disk }}]</span>
+              </div>
+            </div>
+            <span v-if="getVersionedDisks(game.id).length === 0" class="empty-text">-</span>
+          </div>
+
+          <div class="col-downloads download-count-text">{{ game.downloadCount || 0 }} <span class="unit">次</span></div>
+
+          <div class="col-actions btn-group">
+            <button class="btn-modify" @click="openEditModal(game.id)">修改</button>
+            <button
+              :class="game.isActive ? 'btn-delete' : 'btn-publish'"
+              @click="handleToggleStatus(game.id, game.isActive)"
+            >
+              {{ game.isActive ? '下架' : '上架' }}
+            </button>
+          </div>
         </div>
 
-        <div class="col-downloads download-count-text">{{ game.downloadCount || 0 }} <span class="unit">次</span></div>
-
-        <div class="col-actions btn-group">
-          <button class="btn-modify" @click="openEditModal(game.id)">修改</button>
-          <button 
-            :class="game.isActive ? 'btn-delete' : 'btn-publish'" 
-            @click="handleToggleStatus(game.id, game.isActive)"
-          >
-            {{ game.isActive ? '下架' : '上架' }}
-          </button>
+        <div v-if="paginatedData.length === 0" class="loading-tip">
+          暂无符合该多重筛选条件的游戏数据
         </div>
-      </div>
-      
-      <div v-if="paginatedData.length === 0" class="loading-tip">
-        暂无符合该多重筛选条件的游戏数据
-      </div>
 
-      <Pagination 
-        v-model:currentPage="currentPage" 
-        :totalItems="displayedData.length" 
-        :pageSize="pageSize" 
-      />
+        <Pagination
+          v-model:currentPage="currentPage"
+          :totalItems="displayedData.length"
+          :pageSize="pageSize"
+        />
+      </template>
 
     </div>
     
@@ -492,4 +500,15 @@ const getDiskClass = (diskName) => {
 .btn-delete:hover { opacity: 0.9; }
 
 .loading-tip { text-align: center; padding: 40px; color: var(--text-light, #94A3B8); font-weight: 600; }
+
+.loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 0; }
+.loading-spinner {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 4px solid var(--bg-hover, #F1F5F9);
+  border-top-color: var(--color-admin-primary, #10B981);
+  animation: game-manager-spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+.loading-text { font-size: 14px; font-weight: 700; color: var(--text-light, #94A3B8); }
+@keyframes game-manager-spin { to { transform: rotate(360deg); } }
 </style>

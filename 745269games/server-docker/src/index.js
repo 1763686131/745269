@@ -86,13 +86,63 @@ const formatGameData = (results) => {
   }));
 };
 
-// 🌟【核心中间件】拦截后台 API，验证管理员门票 (Token)
+// ================= 密码哈希（基于 Node 内置 crypto.scrypt，无需额外依赖包） =================
+const hashPassword = (password) => {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+};
+
+// 兼容历史遗留的明文密码：如果存储值不是 scrypt$ 格式，退回明文比较，
+// 调用方在验证通过后会把它升级成哈希存储
+const isLegacyPlainPassword = (stored) => !!stored && !stored.startsWith('scrypt$');
+
+const verifyPassword = (password, stored) => {
+  if (isLegacyPlainPassword(stored)) {
+    return stored === password;
+  }
+  const parts = (stored || '').split('$');
+  if (parts.length !== 3) return false;
+  const [, salt, hashHex] = parts;
+  const candidate = crypto.scryptSync(password, salt, 64);
+  const expected = Buffer.from(hashHex, 'hex');
+  if (candidate.length !== expected.length) return false;
+  return crypto.timingSafeEqual(candidate, expected);
+};
+
+// ================= 登录会话（服务端可校验、可撤销的真实令牌） =================
+const createSession = (userId) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  db.prepare(`
+    INSERT INTO sessions (token, user_id, expires_at)
+    VALUES (?, ?, datetime('now', '+7 days'))
+  `).run(token, userId);
+  // 顺手清理过期会话，避免这张表无限增长
+  db.prepare(`DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP`).run();
+  return token;
+};
+
+// 🌟【核心中间件】拦截后台 API，验证管理员登录会话
 const verifyAdmin = (req, res, next) => {
   const authHeader = req.headers['authorization'] || '';
-  // 校验是否带有合法登录生成的 ADMIN_TOKEN
-  if (!authHeader.includes('ADMIN_TOKEN_')) {
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  if (!token) {
+    return res.status(401).json({ error: '请先登录后台' });
+  }
+
+  const session = db.prepare(`
+    SELECT s.token, u.id as userId, u.username, u.role
+    FROM sessions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.token = ? AND s.expires_at > CURRENT_TIMESTAMP
+  `).get(token);
+
+  if (!session || session.role !== 'admin') {
     return res.status(403).json({ error: '权限不足：非法越权访问已被拦截！' });
   }
+
+  req.adminUser = session;
   next(); // 验证通过，放行
 };
 
@@ -191,7 +241,7 @@ app.get('/api/admin/games/search', verifyAdmin, (req, res) => {
 });
 
 // 3. 新增游戏
-app.post('/api/games', (req, res) => {
+app.post('/api/games', verifyAdmin, (req, res) => {
   const body = req.body;
   const uuid = crypto.randomUUID();
   
@@ -218,7 +268,7 @@ app.post('/api/games', (req, res) => {
 // ==========================================
 // 4. 修改游戏 (基础信息编辑)
 // ==========================================
-app.put('/api/games/:id', (req, res) => {
+app.put('/api/games/:id', verifyAdmin, (req, res) => {
   try {
     const id = req.params.id;
     const body = req.body;
@@ -251,7 +301,7 @@ app.put('/api/games/:id', (req, res) => {
 // ==========================================
 // 🌟 4.1 切换游戏上下架状态 (双状态秒切)
 // ==========================================
-app.put('/api/games/:id/status', (req, res) => {
+app.put('/api/games/:id/status', verifyAdmin, (req, res) => {
   try {
     const id = req.params.id;
     const body = req.body;
@@ -273,7 +323,7 @@ app.put('/api/games/:id/status', (req, res) => {
 });
 
 // 5. 删除游戏
-app.delete('/api/games/:id', (req, res) => {
+app.delete('/api/games/:id', verifyAdmin, (req, res) => {
   const id = req.params.id;
   db.prepare("DELETE FROM games WHERE id = ?").run(id);
   res.json({ success: true, message: "游戏已删除" });
@@ -325,7 +375,7 @@ app.get('/api/tags', (req, res) => {
 });
 
 // 【新增标签】
-app.post('/api/tags', (req, res) => {
+app.post('/api/tags', verifyAdmin, (req, res) => {
   try {
     const { tags } = req.body; // 接收前端传来的数组，如 ['动作', '冒险']
     
@@ -409,13 +459,13 @@ app.post('/api/feedback', (req, res) => {
 });
 
 // 10. 获取所有反馈列表
-app.get('/api/feedbacks', (req, res) => {
+app.get('/api/feedbacks', verifyAdmin, (req, res) => {
   const results = db.prepare("SELECT * FROM feedbacks ORDER BY id DESC LIMIT 50").all();
   res.json(results);
 });
 
 // 11. 切换反馈状态/标记已解决
-app.put('/api/feedbacks/:id', (req, res) => {
+app.put('/api/feedbacks/:id', verifyAdmin, (req, res) => {
   const id = req.params.id;
   const body = req.body;
   db.prepare("UPDATE feedbacks SET is_handled = ? WHERE id = ?").run(body.is_handled ? 1 : 0, id);
@@ -423,46 +473,46 @@ app.put('/api/feedbacks/:id', (req, res) => {
 });
 
 // 12. 删除反馈
-app.delete('/api/feedbacks/:id', (req, res) => {
+app.delete('/api/feedbacks/:id', verifyAdmin, (req, res) => {
   const id = req.params.id;
   db.prepare("DELETE FROM feedbacks WHERE id = ?").run(id);
   res.json({ success: true });
 });
 
 // 13. 获取用户列表
-app.get('/api/users', (req, res) => {
+app.get('/api/users', verifyAdmin, (req, res) => {
   const results = db.prepare(`
-    SELECT id, username, email, avatar_url, role, status, reputation, created_at, last_login_at 
+    SELECT id, username, email, avatar_url, role, status, reputation, created_at, last_login_at
     FROM users ORDER BY id DESC LIMIT 100
   `).all();
   res.json(results);
 });
 
 // 14. 新增用户
-app.post('/api/users', (req, res) => {
+app.post('/api/users', verifyAdmin, (req, res) => {
   const body = req.body;
   const existingUser = db.prepare("SELECT id FROM users WHERE username = ?").get(body.username);
-  
+
   if (existingUser) {
     return res.status(400).json({ success: false, error: "用户名已存在，请换一个" });
   }
 
   db.prepare(`
     INSERT INTO users (username, password, email, role, status) VALUES (?, ?, ?, ?, ?)
-  `).run(body.username, body.password, body.email || '', body.role || 'user', 'active');
+  `).run(body.username, hashPassword(body.password || ''), body.email || '', body.role || 'user', 'active');
 
   res.json({ success: true });
 });
 
 // 15. 删除用户
-app.delete('/api/users/:id', (req, res) => {
+app.delete('/api/users/:id', verifyAdmin, (req, res) => {
   const id = req.params.id;
   db.prepare("DELETE FROM users WHERE id = ?").run(id);
   res.json({ success: true });
 });
 
 // 16. 获取访问数据概要
-app.get('/api/analytics/summary', (req, res) => {
+app.get('/api/analytics/summary', verifyAdmin, (req, res) => {
   try {
     // 修复时区：使用 localtime 确保今日数据的准确性
     const todayPvRes = db.prepare("SELECT COUNT(*) as count FROM site_logs WHERE date(created_at, 'localtime') = date('now', 'localtime')").get();
@@ -482,7 +532,7 @@ app.get('/api/analytics/summary', (req, res) => {
 });
 
 // 17. 获取实时访问日志明细 (🌟 升级为分页版)
-app.get('/api/analytics/logs', (req, res) => {
+app.get('/api/analytics/logs', verifyAdmin, (req, res) => {
   try {
     // 接收前端传来的参数，默认 100 条
     const limit = parseInt(req.query.limit) || 100;
@@ -503,7 +553,7 @@ app.get('/api/analytics/logs', (req, res) => {
 });
 
 // 17.5 管理员手动一键清空所有访问日志
-app.delete('/api/analytics/logs', (req, res) => {
+app.delete('/api/analytics/logs', verifyAdmin, (req, res) => {
   try {
     // 物理清空 site_logs 表
     db.prepare("DELETE FROM site_logs").run();
@@ -537,25 +587,40 @@ app.post('/api/login', (req, res) => {
 
   const user = db.prepare("SELECT * FROM users WHERE username = ? AND role = 'admin'").get(body.username);
 
-  if (!user || user.password !== body.password) {
+  if (!user || !verifyPassword(body.password || '', user.password)) {
     if (attemptRecord) {
       db.prepare("UPDATE login_attempts SET attempts = attempts + 1, last_attempt = CURRENT_TIMESTAMP WHERE ip = ?").run(ip);
     } else {
       db.prepare("INSERT INTO login_attempts (ip, attempts) VALUES (?, 1)").run(ip);
     }
-    
+
     const newAttempts = attempts + 1;
-    return res.json({ 
-      success: false, 
+    return res.json({
+      success: false,
       error: `账号或密码错误！今天还有 ${5 - newAttempts} 次机会。`,
       requireCaptcha: newAttempts >= 3
     });
   }
 
+  // 🌟 平滑迁移：如果这个账号还是历史遗留的明文密码，登录成功后立刻升级成哈希存储
+  if (isLegacyPlainPassword(user.password)) {
+    db.prepare("UPDATE users SET password = ? WHERE id = ?").run(hashPassword(body.password), user.id);
+  }
+
   db.prepare("UPDATE login_attempts SET attempts = 0 WHERE ip = ?").run(ip);
-  const token = "ADMIN_TOKEN_" + user.id + "_" + Date.now();
-  
+  const token = createSession(user.id);
+
   res.json({ success: true, token: token, username: user.username });
+});
+
+// 19. 后台退出登录：让服务端也真正撤销这个会话，而不是只清本地缓存
+app.post('/api/logout', (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (token) {
+    db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+  }
+  res.json({ success: true });
 });
 
 

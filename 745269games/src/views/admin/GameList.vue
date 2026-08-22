@@ -73,6 +73,11 @@
               {{ searchCooldown > 0 ? `搜索(${searchCooldown}s)` : '搜索' }}
             </button>
           </div>
+          <button @click="toggleTheme" class="theme-toggle-btn" title="切换主题">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.38 3.46 16 2a8.5 8.5 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
+            </svg>
+          </button>
           <button class="action-btn logout-btn" @click="gameStore.adminLogout()">🚪 退出系统</button>
         </div>
       </header>
@@ -103,6 +108,21 @@ import AccessStats from '@/components/admin/AccessStats.vue'
 
 const gameStore = useGameStore()
 const activeTab = ref('games')
+
+// ================== 🌗 主题切换逻辑 (从前台首页移植而来) ==================
+const isDark = ref(false)
+
+const toggleTheme = () => {
+  isDark.value = !isDark.value
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
+    localStorage.setItem('745269_theme', 'dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('745269_theme', 'light')
+  }
+}
+// ======================================================
 
 // ================== 🔐 登录系统逻辑 (未作修改) ==================
 const loginForm = ref({ username: '', password: '', captcha: '' })
@@ -167,7 +187,13 @@ const startCooldown = (secondsRemaining) => {
 
 onMounted(() => {
   if (gameStore.isAdminLoggedIn) gameStore.fetchGames(false)
-  
+
+  const savedTheme = localStorage.getItem('745269_theme')
+  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    isDark.value = true
+    document.documentElement.classList.add('dark')
+  }
+
   const untilTime = localStorage.getItem('searchCooldownUntil')
   if (untilTime) {
     const now = Date.now()
@@ -264,6 +290,27 @@ const handleSearch = async () => {
 .btn-search { background-color: var(--text-heading, #1E293B); color: var(--bg-card, #ffffff); border: none; padding: 0 24px; height: 40px; border-radius: 100px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all 0.3s; white-space: nowrap; }
 .btn-search:hover:not(.is-disabled) { background-color: var(--color-admin-primary, #2DD4BF); color: #ffffff; box-shadow: 0 4px 12px -2px rgba(45, 212, 191, 0.4); }
 .btn-search.is-disabled { background-color: var(--border-dark, #CBD5E1); color: var(--text-main, #334155); cursor: not-allowed; opacity: 0.8; }
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  color: var(--text-muted, #64748B);
+  border: 2px solid var(--border-main, #E2E8F0);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover {
+  color: var(--color-admin-primary, #2DD4BF);
+  border-color: var(--color-admin-primary, #2DD4BF);
+  background-color: var(--bg-hover, #F8FAFC);
+  transform: scale(1.05);
+}
+
 .logout-btn { background: rgba(244, 63, 94, 0.1); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.2); padding: 8px 16px; border-radius: 100px; font-weight: 700; transition: 0.2s; cursor: pointer; }
 .logout-btn:hover { background: #f43f5e; color: #fff; transform: translateY(-1px); }
 

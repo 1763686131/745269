@@ -129,3 +129,17 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   attempts INTEGER DEFAULT 0,    -- 连续失败次数
   last_attempt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- =========================================================
+-- 7. 后台登录会话表 (Sessions) —— 服务端可校验、可撤销的真实令牌
+-- =========================================================
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);

@@ -12,6 +12,82 @@ const corsHeaders = {
 
 const rateLimitMap = new Map();
 
+// ================= 密码哈希（基于 Workers 内置 Web Crypto PBKDF2，无需额外依赖包） =================
+const PBKDF2_ITERATIONS = 100000;
+
+const toHex = (buffer) => Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+const fromHex = (hex) => new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+
+const hashPassword = async (password) => {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${toHex(salt)}$${toHex(derivedBits)}`;
+};
+
+// 兼容历史遗留的明文密码：如果存储值不是 pbkdf2$ 格式，退回明文比较，
+// 调用方在验证通过后会把它升级成哈希存储
+const isLegacyPlainPassword = (stored) => !!stored && !stored.startsWith('pbkdf2$');
+
+const timingSafeEqualHex = (aHex, bHex) => {
+  if (aHex.length !== bHex.length) return false;
+  let diff = 0;
+  for (let i = 0; i < aHex.length; i++) diff |= aHex.charCodeAt(i) ^ bHex.charCodeAt(i);
+  return diff === 0;
+};
+
+const verifyPassword = async (password, stored) => {
+  if (isLegacyPlainPassword(stored)) {
+    return stored === password;
+  }
+  const parts = (stored || '').split('$');
+  if (parts.length !== 4) return false;
+  const [, iterationsStr, saltHex, hashHex] = parts;
+  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: fromHex(saltHex), iterations: parseInt(iterationsStr, 10), hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  return timingSafeEqualHex(toHex(derivedBits), hashHex);
+};
+
+// ================= 登录会话（服务端可校验、可撤销的真实令牌） =================
+const createSession = async (env, userId) => {
+  const token = toHex(crypto.getRandomValues(new Uint8Array(32)));
+  await env.DB.prepare(`
+    INSERT INTO sessions (token, user_id, expires_at)
+    VALUES (?, ?, datetime('now', '+7 days'))
+  `).bind(token, userId).run();
+  // 顺手清理过期会话，避免这张表无限增长
+  await env.DB.prepare(`DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP`).run();
+  return token;
+};
+
+// 🌟【核心校验】拦截后台 API，验证管理员登录会话；未通过返回 null
+const verifyAdmin = async (request, env) => {
+  const authHeader = request.headers.get('authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+
+  const session = await env.DB.prepare(`
+    SELECT s.token, u.id as userId, u.username, u.role
+    FROM sessions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.token = ? AND s.expires_at > CURRENT_TIMESTAMP
+  `).bind(token).first();
+
+  if (!session || session.role !== 'admin') return null;
+  return session;
+};
+
+const forbiddenResponse = (message = '权限不足：非法越权访问已被拦截！') => new Response(
+  JSON.stringify({ success: false, error: message }),
+  { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+);
+
 export default {
   async fetch(request, env, ctx) {
     // 跨域预检
@@ -141,6 +217,7 @@ export default {
       // 3. 新增游戏 (POST /api/games)
       // ==========================================
       if (url.pathname === "/api/games" && request.method === "POST") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const body = await request.json();
         const uuid = crypto.randomUUID();
         
@@ -169,11 +246,12 @@ export default {
       // 4. 修改游戏 (PUT /api/games/:id)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "games" && pathParts[2] && request.method === "PUT") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const id = pathParts[2];
         const body = await request.json();
 
         const stmt = env.DB.prepare(`
-          UPDATE games SET 
+          UPDATE games SET
             title_zh = ?, title_en = ?, cover_url = ?, description = ?,
             aliases_json = ?, metadata_json = ?, downloads_json = ?, media_screenshots_json = ?,
             video_url = ?, 
@@ -199,6 +277,7 @@ export default {
       // 5. 删除游戏 (DELETE /api/games/:id)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "games" && pathParts[2] && request.method === "DELETE") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const id = pathParts[2];
         await env.DB.prepare("DELETE FROM games WHERE id = ?").bind(id).run();
         return new Response(JSON.stringify({ success: true, message: "游戏已删除" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -266,6 +345,8 @@ export default {
 
         if (request.method === "POST") {
 
+          if (!(await verifyAdmin(request, env))) return forbiddenResponse();
+
           const { tags } = await request.json(); // 接收前端传来的数组，如 ['动作', '冒险']
 
           if (tags && tags.length > 0) {
@@ -328,6 +409,7 @@ export default {
       // 10. 管理员：获取所有反馈列表 (GET /api/feedbacks)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "feedbacks" && request.method === "GET") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const { results } = await env.DB.prepare(`
           SELECT * FROM feedbacks ORDER BY id DESC LIMIT 50
         `).all();
@@ -338,6 +420,7 @@ export default {
       // 11. 管理员：切换反馈状态/标记已解决 (PUT /api/feedbacks/:id)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "feedbacks" && pathParts[2] && request.method === "PUT") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const id = pathParts[2];
         const body = await request.json();
         await env.DB.prepare("UPDATE feedbacks SET is_handled = ? WHERE id = ?").bind(body.is_handled ? 1 : 0, id).run();
@@ -348,6 +431,7 @@ export default {
       // 12. 管理员：删除反馈 (DELETE /api/feedbacks/:id)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "feedbacks" && pathParts[2] && request.method === "DELETE") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const id = pathParts[2];
         await env.DB.prepare("DELETE FROM feedbacks WHERE id = ?").bind(id).run();
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -356,8 +440,9 @@ export default {
       // 13. 管理员：获取用户列表 (GET /api/users)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "users" && request.method === "GET") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const { results } = await env.DB.prepare(`
-          SELECT id, username, email, avatar_url, role, status, reputation, created_at, last_login_at 
+          SELECT id, username, email, avatar_url, role, status, reputation, created_at, last_login_at
           FROM users ORDER BY id DESC LIMIT 100
         `).all();
         // 注意：出于安全考虑，绝对不能把 password 查出来返回给前端！
@@ -368,8 +453,9 @@ export default {
       // 14. 管理员：新增用户 (POST /api/users)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "users" && request.method === "POST") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const body = await request.json();
-        
+
         // 检查用户名是否重复
         const existingUser = await env.DB.prepare("SELECT id FROM users WHERE username = ?").bind(body.username).first();
         if (existingUser) {
@@ -379,10 +465,10 @@ export default {
         await env.DB.prepare(`
           INSERT INTO users (username, password, email, role, status) VALUES (?, ?, ?, ?, ?)
         `).bind(
-          body.username, 
-          body.password, // 实际商业环境这里要加盐 Hash 运算（如 bcrypt），现在本地测试直接存
-          body.email || '', 
-          body.role || 'user', 
+          body.username,
+          await hashPassword(body.password || ''), // 🌟 PBKDF2 加盐哈希后再存储
+          body.email || '',
+          body.role || 'user',
           'active'
         ).run();
 
@@ -393,6 +479,7 @@ export default {
       // 15. 管理员：删除用户 (DELETE /api/users/:id)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "users" && pathParts[2] && request.method === "DELETE") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const id = pathParts[2];
         await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -402,6 +489,7 @@ export default {
       // 16. 管理员：获取访问数据概要 (GET /api/analytics/summary)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "analytics" && pathParts[2] === "summary" && request.method === "GET") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         // 今日 PV (今日总访问次数)
         const todayPvRes = await env.DB.prepare("SELECT COUNT(*) as count FROM site_logs WHERE created_at > date('now', 'start of day')").first();
         // 今日 UV (今日不同 IP 的数量)
@@ -423,6 +511,7 @@ export default {
       // 17. 管理员：获取实时访问日志明细 (GET /api/analytics/logs)
       // ==========================================
       if (pathParts[0] === "api" && pathParts[1] === "analytics" && pathParts[2] === "logs" && request.method === "GET") {
+        if (!(await verifyAdmin(request, env))) return forbiddenResponse();
         const { results } = await env.DB.prepare("SELECT * FROM site_logs ORDER BY id DESC LIMIT 50").all();
         return new Response(JSON.stringify(results), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -456,33 +545,48 @@ export default {
         // 3. 验证账号密码 (只允许 admin 角色登录)
         const user = await env.DB.prepare("SELECT * FROM users WHERE username = ? AND role = 'admin'").bind(body.username).first();
 
-        if (!user || user.password !== body.password) {
+        if (!user || !(await verifyPassword(body.password || '', user.password))) {
           // 密码错误，更新记录
           if (attemptRecord) {
             await env.DB.prepare("UPDATE login_attempts SET attempts = attempts + 1, last_attempt = CURRENT_TIMESTAMP WHERE ip = ?").bind(ip).run();
           } else {
             await env.DB.prepare("INSERT INTO login_attempts (ip, attempts) VALUES (?, 1)").bind(ip).run();
           }
-          
+
           const newAttempts = attempts + 1;
           const requireCaptcha = newAttempts >= 3; // 🚨 错3次开始强制要求验证码
-          
-          return new Response(JSON.stringify({ 
-            success: false, 
+
+          return new Response(JSON.stringify({
+            success: false,
             error: `账号或密码错误！今天还有 ${5 - newAttempts} 次机会。`,
             requireCaptcha: requireCaptcha
           }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
-        // 4. 登录成功！清零错误次数并返回 Token
+        // 🌟 平滑迁移：如果这个账号还是历史遗留的明文密码，登录成功后立刻升级成哈希存储
+        if (isLegacyPlainPassword(user.password)) {
+          await env.DB.prepare("UPDATE users SET password = ? WHERE id = ?").bind(await hashPassword(body.password), user.id).run();
+        }
+
+        // 4. 登录成功！清零错误次数并签发服务端可校验、可撤销的会话 Token
         await env.DB.prepare("UPDATE login_attempts SET attempts = 0 WHERE ip = ?").bind(ip).run();
-        
-        // 生成简易高防 Token (生产环境建议用 JWT，这里用 时间戳+随机数 模拟)
-        const token = "ADMIN_TOKEN_" + user.id + "_" + Date.now();
-        
-        return new Response(JSON.stringify({ success: true, token: token, username: user.username }), { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        const token = await createSession(env, user.id);
+
+        return new Response(JSON.stringify({ success: true, token: token, username: user.username }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
+      }
+
+      // ==========================================
+      // 19. 后台退出登录：让服务端也真正撤销这个会话 (POST /api/logout)
+      // ==========================================
+      if (pathParts[0] === "api" && pathParts[1] === "logout" && request.method === "POST") {
+        const authHeader = request.headers.get('authorization') || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        if (token) {
+          await env.DB.prepare("DELETE FROM sessions WHERE token = ?").bind(token).run();
+        }
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
 

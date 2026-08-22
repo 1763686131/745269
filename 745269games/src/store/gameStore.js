@@ -12,6 +12,12 @@ export const useGameStore = defineStore('game', () => {
   const currentOffset = ref(0)
   const hasMore = ref(true)
 
+  // 🌟 统一的后台鉴权请求头：所有管理端接口都要带上登录令牌
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('745269_admin_token')
+    return token ? { 'Authorization': `Bearer ${token}` } : {}
+  }
+
   // 💡 无敌组装机：自动把数据库散装字段 (title_zh, video_url 等) 100% 组装为标准结构
   const parseGameData = (rawGame) => {
     if (!rawGame) return null
@@ -175,7 +181,7 @@ export const useGameStore = defineStore('game', () => {
   const deleteGame = async (id) => {
     if (!confirm('🚨 确定要下架并永久删除这款游戏吗？该操作不可逆！')) return
     try {
-      const response = await fetch(`${API_BASE_URL}/api/games/${id}`, { method: 'DELETE' })
+      const response = await fetch(`${API_BASE_URL}/api/games/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
       const result = await response.json()
       if (result.success) {
         allGames.value = allGames.value.filter(game => game.id !== id)
@@ -188,7 +194,7 @@ export const useGameStore = defineStore('game', () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/games/${id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ is_active: newStatus })
       })
       const result = await response.json()
@@ -318,7 +324,7 @@ export const useGameStore = defineStore('game', () => {
   // 🌟 10. 管理员获取反馈列表
   const fetchFeedbacks = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/feedbacks`)
+      const response = await fetch(`${API_BASE_URL}/api/feedbacks`, { headers: getAuthHeaders() })
       if (!response.ok) throw new Error('拉取反馈失败')
       return await response.json()
     } catch (error) {
@@ -332,7 +338,7 @@ export const useGameStore = defineStore('game', () => {
     try {
       await fetch(`${API_BASE_URL}/api/feedbacks/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ is_handled: isHandled })
       })
       return true
@@ -345,7 +351,7 @@ export const useGameStore = defineStore('game', () => {
   const deleteFeedback = async (id) => {
     if (!confirm('确定要清除这条反馈记录吗？')) return false
     try {
-      await fetch(`${API_BASE_URL}/api/feedbacks/${id}`, { method: 'DELETE' })
+      await fetch(`${API_BASE_URL}/api/feedbacks/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
       return true
     } catch (error) {
       return false
@@ -355,7 +361,7 @@ export const useGameStore = defineStore('game', () => {
   // 🌟 13. 获取用户列表
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`)
+      const response = await fetch(`${API_BASE_URL}/api/users`, { headers: getAuthHeaders() })
       if (!response.ok) throw new Error('获取用户失败')
       return await response.json()
     } catch (error) {
@@ -369,7 +375,7 @@ export const useGameStore = defineStore('game', () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(userData)
       })
       const result = await response.json()
@@ -384,7 +390,7 @@ export const useGameStore = defineStore('game', () => {
   const deleteUser = async (id) => {
     if (!confirm('🚨 警告：确定要永久删除该用户吗？此操作无法撤销！')) return false
     try {
-      await fetch(`${API_BASE_URL}/api/users/${id}`, { method: 'DELETE' })
+      await fetch(`${API_BASE_URL}/api/users/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
       return true
     } catch (error) {
       return false
@@ -394,7 +400,7 @@ export const useGameStore = defineStore('game', () => {
   // 🌟 16. 获取访问统计数据概要
   const fetchAnalyticsSummary = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/analytics/summary`)
+      const res = await fetch(`${API_BASE_URL}/api/analytics/summary`, { headers: getAuthHeaders() })
       if (!res.ok) throw new Error('获取流量概要失败')
       return await res.json()
     } catch (error) {
@@ -405,7 +411,7 @@ export const useGameStore = defineStore('game', () => {
   // 🌟 17. 获取实时访问日志明细 (支持分页传参)
   const fetchAccessLogs = async (limit = 100, offset = 0) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/analytics/logs?limit=${limit}&offset=${offset}`)
+      const res = await fetch(`${API_BASE_URL}/api/analytics/logs?limit=${limit}&offset=${offset}`, { headers: getAuthHeaders() })
       if (!res.ok) throw new Error('获取访问日志失败')
       return await res.json() // 这里现在返回的是 { total: Number, data: Array }
     } catch (error) {
@@ -416,7 +422,7 @@ export const useGameStore = defineStore('game', () => {
   // 🌟 17.5 管理员清空访问日志
   const clearAccessLogs = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/analytics/logs`, { method: 'DELETE' })
+      const res = await fetch(`${API_BASE_URL}/api/analytics/logs`, { method: 'DELETE', headers: getAuthHeaders() })
       if (!res.ok) throw new Error('清空日志失败')
       return await res.json()
     } catch (error) {
@@ -447,8 +453,9 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  // 🌟 19. 退出登录
+  // 🌟 19. 退出登录（同时通知服务端撤销这个会话，而不是只清本地缓存）
   const adminLogout = () => {
+    fetch(`${API_BASE_URL}/api/logout`, { method: 'POST', headers: getAuthHeaders() }).catch(() => {})
     isAdminLoggedIn.value = false
     localStorage.removeItem('745269_admin_token')
   }
@@ -511,7 +518,7 @@ const parseIps = async (ipArray) => {
     try {
       await fetch(`${API_BASE_URL}/api/tags`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ tags: tagsArray })
       })
       await fetchTags()
