@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted } from 'vue'
+import FloatingButtons from '@/components/common/FloatingButtons.vue'
 
 onMounted(() => {
   // 🎯 无论用户在哪个页面（首页/详情页/后台）按 F5 刷新，
@@ -20,9 +21,7 @@ onMounted(() => {
     <keep-alive include="gamesHome"> <component :is="Component" />
     </keep-alive>
   </router-view>
-  <!-- <gameshome></gameshome> -->
-      <!-- <Detail /> -->
-    <!-- <GameList></GameList> -->
+  <FloatingButtons />
 </template>
 
 <style>
