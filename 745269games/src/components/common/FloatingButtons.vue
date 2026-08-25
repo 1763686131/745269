@@ -16,15 +16,29 @@
     </transition>
 
     <!-- 2. 加QQ群按钮 -->
-    <button 
-      class="float-btn btn-qq" 
-      @click="openQQModal" 
+    <button
+      class="float-btn btn-qq"
+      @click="openQQModal"
       title="加入官方QQ群"
     >
       <svg class="qq-icon-svg" viewBox="0 0 24 24" width="20" height="20">
         <path fill="currentColor" d="M12 2C7.38 2 5.09 5.27 5.09 8.66c0 1.53.47 2.38.83 3.09-.43.51-.76 1.12-.94 1.83-.34 1.37-.08 2.57.73 3.32 1.15 1.07 3.05.5 4.19-.13.7.35 1.48.56 2.31.56 1.16 0 2.22-.4 3.11-1.07.64.38 1.53.76 2.37.76.62 0 1.17-.22 1.53-.63.78-.9 1-2.42.54-3.83-.2-.61-.51-1.14-.88-1.58.4-.73.91-1.63.91-3.21C20.18 5.41 17.52 2 12 2zm3.3 10c-.72 0-1.3-.58-1.3-1.3s.58-1.3 1.3-1.3 1.3.58 1.3 1.3-.58 1.3-1.3 1.3zm-6.6 0c-.72 0-1.3-.58-1.3-1.3s.58-1.3 1.3-1.3 1.3.58 1.3 1.3-.58 1.3-1.3 1.3z"/>
       </svg>
       <span class="tooltip">交流QQ群</span>
+    </button>
+
+    <!-- 🌟 每日抽奖按钮 -->
+    <button
+      class="float-btn btn-lottery"
+      @click="openLotteryModal"
+      title="每日抽奖"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+        <line x1="8" y1="21" x2="16" y2="21"></line>
+        <line x1="12" y1="17" x2="12" y2="21"></line>
+      </svg>
+      <span class="tooltip">每日抽奖</span>
     </button>
 
     <!-- 3. 反馈问题按钮 -->
@@ -89,14 +103,21 @@
     </transition>
 
     <!-- 🌟 现有的反馈问题弹窗 -->
-    <FeedbackModal 
-      v-if="showFeedback" 
+    <FeedbackModal
+      v-if="showFeedback"
       title="📝 意见反馈 / 资源求助"
       hint="如果您遇到游戏报错、网盘失效、解压密码错误，或者想要求某些好玩的游戏资源，请在下方留言，站长看到后会火速为您解决！"
       placeholder="请详细描述您的问题，例如：XX 游戏百度云链接失效了 / 想要 XX 游戏汉化版..."
       :gameId="0"
       gameName="【全站悬浮按钮】反馈与求助"
       @close="showFeedback = false"
+    />
+
+    <!-- 🌟 每日抽奖弹窗 -->
+    <DailyLottery
+      :isVisible="showLottery"
+      @close="showLottery = false"
+      @open="showLottery = true"
     />
   </div>
 </template>
@@ -105,6 +126,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import FeedbackModal from '@/components/common/FeedbackModal.vue'
+import DailyLottery from '@/components/common/DailyLottery.vue'
 
 // ================= 🌟 基础配置 =================
 const qqGroupNumber = ref('681533034') // 👈 QQ群号，可按需修改
@@ -135,6 +157,12 @@ const scrollToTop = () => {
 const showFeedback = ref(false)
 const openFeedbackModal = () => {
   showFeedback.value = true
+}
+
+// ================= 🌟 每日抽奖弹窗逻辑 =================
+const showLottery = ref(false)
+const openLotteryModal = () => {
+  showLottery.value = true
 }
 
 // ================= 🌟 QQ群弹窗逻辑 =================
@@ -213,6 +241,11 @@ onUnmounted(() => {
 .btn-qq:hover {
   background: #12b7f5;
   box-shadow: 0 6px 16px rgba(18, 183, 245, 0.4);
+}
+
+.btn-lottery:hover {
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
 }
 
 .btn-feedback:hover {

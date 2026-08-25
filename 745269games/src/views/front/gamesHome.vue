@@ -171,14 +171,14 @@
       </div>
     </footer>
 
-    <FeedbackModal 
-      v-if="showFeedbackModal" 
+    <FeedbackModal
+      v-if="showFeedbackModal"
       title="✨ 跪求游戏资源"
       hint="没有搜到您想玩的游戏？留个言，站长火速帮你搬运！"
       :placeholder="`比如：能不能上个 ${lastSearchedKeyword || '黑神话悟空'} 的整合包呀？`"
-      :gameId="0" 
-      :gameName="`【资源求助】用户搜索词：${lastSearchedKeyword}`" 
-      @close="showFeedbackModal = false" 
+      :gameId="0"
+      :gameName="`【资源求助】用户搜索词：${lastSearchedKeyword}`"
+      @close="showFeedbackModal = false"
     />
 
   </div>
