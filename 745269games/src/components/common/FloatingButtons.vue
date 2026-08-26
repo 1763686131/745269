@@ -129,7 +129,7 @@ import FeedbackModal from '@/components/common/FeedbackModal.vue'
 import DailyLottery from '@/components/common/DailyLottery.vue'
 
 // ================= 🌟 基础配置 =================
-const qqGroupNumber = ref('681533034') // 👈 QQ群号，可按需修改
+const qqGroupNumber = ref('938491927') // 👈 QQ群号，可按需修改
 const qqGroupJoinLink = ref('https://qm.qq.com/cgi-bin/qm/qr?k=T84Y57_y997DAtpYmB-eZ78g8f7h9i02') // 👈 一键加群Web连接
 const qqGroupQrCode = ref('') // 👈 QQ群二维码，可配置图片外链，若无则不显示
 

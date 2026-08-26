@@ -3,7 +3,7 @@
     <div class="lottery-modal" @click.stop>
       <!-- 标题区域 -->
       <div class="modal-header">
-        <h2 class="modal-title">🔮 神秘巫婆的游戏占卜</h2>
+        <h2 class="modal-title">每日游戏抽奖</h2>
         <button class="close-btn" @click="closeLottery">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -21,7 +21,7 @@
             <span class="star">🌟</span>
           </div>
           <h3 class="loading-text">探索星辰大海中...</h3>
-          <p class="loading-hint">巫婆正在为你寻找最适合的游戏</p>
+          <p class="loading-hint">系统正在为你寻找最适合的游戏...</p>
         </div>
       </div>
 
@@ -118,7 +118,7 @@
 
       <!-- 卡片翻转阶段 -->
       <div v-else-if="currentStep === 'cards'" class="cards-section">
-        <p class="cards-hint">巫婆为你准备了4个命运之选，点击翻开查看！</p>
+        <p class="cards-hint">系统为你准备了4个命运之选，点击翻开查看！</p>
 
         <div class="cards-grid">
           <div
@@ -146,9 +146,6 @@
 
               <!-- 卡片正面 -->
               <div class="card-front">
-                <!-- 发光特效层 -->
-                <div class="glow-effect" v-if="card.rarity === 'legendary'"></div>
-
                 <!-- 游戏封面 -->
                 <div class="card-image-wrapper">
                   <img v-if="card.game?.media?.cover" :src="card.game.media.cover" :alt="card.game.title?.zh_CN" class="game-cover-img" />
@@ -991,6 +988,11 @@ watch(() => route.path, (newPath, oldPath) => {
   transform-style: preserve-3d;
 }
 
+/* 金色传说卡片翻转速度变慢 */
+.card-wrapper.rarity-legendary .card-inner {
+  transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .card-wrapper.is-flipped .card-inner {
   transform: rotateY(180deg);
 }
@@ -1010,6 +1012,7 @@ watch(() => route.path, (newPath, oldPath) => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   border: 2px solid var(--border-light);
   transition: all 0.3s ease;
+  overflow: hidden; /* 确保子元素不会溢出圆角 */
 }
 
 /* ==================== 卡片背面 ==================== */
@@ -1047,11 +1050,11 @@ watch(() => route.path, (newPath, oldPath) => {
 
 /* ==================== 卡片正面 ==================== */
 .card-front {
-  background-color: var(--bg-body);
+  background-color: transparent; /* 改为透明，移除背景色 */
   transform: rotateY(180deg);
   padding: 0; /* 移除内边距，让封面占满 */
   position: relative;
-  overflow: hidden;
+  overflow: hidden; /* 确保子元素不会溢出 */
   cursor: pointer;
   transition: transform 0.3s ease;
   display: flex;
@@ -1089,31 +1092,13 @@ watch(() => route.path, (newPath, oldPath) => {
   letter-spacing: 1px;
 }
 
-/* 稀有度徽章（在封面上） */
-.rarity-badge-top {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 900;
-  padding: 4px 10px;
-  border-radius: 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  z-index: 3;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
 /* ==================== 🌟 卡片内容区域 ==================== */
 .card-content {
   padding: 16px;
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-body);
+  background-color: var(--bg-body); /* 只给内容区域加背景 */
   overflow: hidden;
   min-height: 0;
 }
@@ -1174,67 +1159,32 @@ watch(() => route.path, (newPath, oldPath) => {
 }
 
 /* ==================== 🌟 炉石传说风格发光特效 ==================== */
-.glow-effect {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 1;
-}
-
 /* 传说卡片发光效果 */
 .card-wrapper.rarity-legendary .card-front {
   border: 3px solid #ffd700;
-  box-shadow: 0 0 20px rgba(255, 215, 0, 1), 0 0 40px rgba(255, 215, 0, 0.8);
-  animation: legendarySpread 2s ease-in-out infinite;
+  animation: legendaryBorderBlink 3s ease-in-out infinite;
 }
 
-@keyframes legendarySpread {
-  0%, 100% {
-    box-shadow:
-      0 0 20px rgba(255, 215, 0, 1),
-      0 0 40px rgba(255, 215, 0, 0.8),
-      0 0 0px rgba(255, 215, 0, 0.6);
+@keyframes legendaryBorderBlink {
+  0%, 20% {
+    border-color: rgba(255, 215, 0, 0); /* 完全透明，不发光 */
   }
   50% {
-    box-shadow:
-      0 0 30px rgba(255, 215, 0, 1),
-      0 0 60px rgba(255, 215, 0, 0.9),
-      0 0 90px rgba(255, 215, 0, 0.6),
-      0 0 120px rgba(255, 215, 0, 0.4);
+    border-color: rgba(255, 215, 0, 1); /* 完全不透明，最亮 */
+  }
+  100% {
+    border-color: rgba(255, 215, 0, 0); /* 回到透明 */
   }
 }
 
-/* 史诗卡片紫色发光 */
+/* 史诗卡片紫色边框 */
 .card-wrapper.rarity-epic .card-front {
   border: 2px solid #8b5cf6;
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.6);
 }
 
-/* 稀有卡片蓝色发光 */
+/* 稀有卡片蓝色边框 */
 .card-wrapper.rarity-rare .card-front {
   border: 2px solid #3b82f6;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-}
-
-/* ==================== 稀有度徽章 ==================== */
-.rarity-badge {
-  position: relative;
-  z-index: 2;
-  font-size: 13px;
-  font-weight: 900;
-  color: #ffffff;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  padding: 6px 16px;
-  border-radius: 20px;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  margin-top: 8px;
 }
 
 /* ==================== 底部说明 ==================== */
