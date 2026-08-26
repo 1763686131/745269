@@ -116,6 +116,19 @@
         </button>
       </div>
 
+      <!-- 🌟 游戏不足提示 -->
+      <div v-else-if="currentStep === 'insufficient'" class="insufficient-section">
+        <div class="insufficient-content">
+          <div class="insufficient-icon">😢</div>
+          <h3 class="insufficient-title">游戏数量不足</h3>
+          <p class="insufficient-text">符合条件的游戏不足4款，正在补充中...</p>
+          <p class="insufficient-hint">请重新调整筛选条件试试吧~</p>
+          <button class="reselect-btn" @click="resetToQuestions">
+            🔄 重新筛选
+          </button>
+        </div>
+      </div>
+
       <!-- 卡片翻转阶段 -->
       <div v-else-if="currentStep === 'cards'" class="cards-section">
         <p class="cards-hint">系统为你准备了4个命运之选，点击翻开查看！</p>
@@ -370,9 +383,8 @@ const generateCards = async () => {
 
     // 🌟 如果数据库返回的数据小于4条，显示"补充中..."提示
     if (randomGames.length < 4) {
-      alert('符合条件的游戏不足4款，正在补充中...')
       isLoading.value = false
-      currentStep.value = 'question'
+      currentStep.value = 'insufficient'
       return
     }
 
@@ -691,6 +703,77 @@ watch(() => route.path, (newPath, oldPath) => {
   font-size: 16px;
   color: var(--text-muted);
   margin: 0;
+}
+
+/* ==================== 🌟 游戏数量不足提示 ==================== */
+.insufficient-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  padding: 60px 20px;
+}
+
+.insufficient-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.insufficient-icon {
+  font-size: 80px;
+  margin-bottom: 24px;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.insufficient-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--text-heading);
+  margin: 0 0 16px 0;
+}
+
+.insufficient-text {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin: 0 0 12px 0;
+  line-height: 1.6;
+}
+
+.insufficient-hint {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 32px 0;
+}
+
+.reselect-btn {
+  padding: 12px 32px;
+  border-radius: 100px;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.reselect-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.reselect-btn:active {
+  transform: translateY(0);
 }
 
 /* ==================== 🌟 问答区域 ==================== */

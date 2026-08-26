@@ -9,6 +9,9 @@ export const useGameStore = defineStore('game', () => {
   const allGames = ref([])
   const isAdminLoggedIn = ref(localStorage.getItem('745269_admin_token') ? true : false)
 
+  // 🔔 未处理反馈数量
+  const unhandledFeedbackCount = ref(0)
+
   const currentOffset = ref(0)
   const hasMore = ref(true)
 
@@ -326,7 +329,12 @@ export const useGameStore = defineStore('game', () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/feedbacks`, { headers: getAuthHeaders() })
       if (!response.ok) throw new Error('拉取反馈失败')
-      return await response.json()
+      const feedbacks = await response.json()
+
+      // 🔔 更新未处理反馈数量
+      unhandledFeedbackCount.value = feedbacks.filter(f => !f.is_handled).length
+
+      return feedbacks
     } catch (error) {
       console.error('获取反馈失败:', error)
       return []
@@ -341,6 +349,14 @@ export const useGameStore = defineStore('game', () => {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ is_handled: isHandled })
       })
+
+      // 🔔 更新未处理反馈数量
+      if (isHandled) {
+        unhandledFeedbackCount.value = Math.max(0, unhandledFeedbackCount.value - 1)
+      } else {
+        unhandledFeedbackCount.value += 1
+      }
+
       return true
     } catch (error) {
       return false
@@ -352,6 +368,9 @@ export const useGameStore = defineStore('game', () => {
     if (!confirm('确定要清除这条反馈记录吗？')) return false
     try {
       await fetch(`${API_BASE_URL}/api/feedbacks/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+
+      // 🔔 删除时需要重新获取列表来更新数量（因为不知道删除的是否已处理）
+      // 或者在调用处传入 isHandled 参数
       return true
     } catch (error) {
       return false
@@ -535,7 +554,7 @@ const parseIps = async (ipArray) => {
     saveGame,
     deleteGame,
     uploadImage,
-    fetchSearchFromServer, 
+    fetchSearchFromServer,
     fetchGameById,
     formatAdminTableData,
     historyTags,
@@ -557,6 +576,7 @@ const parseIps = async (ipArray) => {
     clearAccessLogs, // 新增清空访问日志方法
     ipLocationMap,  // 新增 IP 位置映射
     parseIps,      // 新增 IP 定位方法
-    toggleGameStatus // 新增上下架状态切换方法
+    toggleGameStatus, // 新增上下架状态切换方法
+    unhandledFeedbackCount // 🔔 未处理反馈数量
   }
 })

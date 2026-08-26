@@ -101,8 +101,15 @@ const handleToggleStatus = async (item) => {
 
 // 🌟 新增删除反馈功能
 const handleDelete = async (id) => {
+  // 找到要删除的反馈项
+  const itemToDelete = feedbacks.value.find(f => f.id === id)
+
   const success = await gameStore.deleteFeedback(id)
   if (success) {
+    // 如果删除的是未处理的反馈，减少计数
+    if (itemToDelete && !itemToDelete.is_handled) {
+      gameStore.unhandledFeedbackCount = Math.max(0, gameStore.unhandledFeedbackCount - 1)
+    }
     feedbacks.value = feedbacks.value.filter(f => f.id !== id)
   }
 }

@@ -73,6 +73,16 @@
               {{ searchCooldown > 0 ? `搜索(${searchCooldown}s)` : '搜索' }}
             </button>
           </div>
+          <!-- 🔔 消息提醒按钮 -->
+          <button @click="goToFeedback" class="notification-btn" title="反馈消息">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span v-if="gameStore.unhandledFeedbackCount > 0" class="notification-badge">
+              {{ gameStore.unhandledFeedbackCount > 99 ? '99+' : gameStore.unhandledFeedbackCount }}
+            </span>
+          </button>
           <button @click="toggleTheme" class="theme-toggle-btn" title="切换主题">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20.38 3.46 16 2a8.5 8.5 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
@@ -122,6 +132,11 @@ const toggleTheme = () => {
     localStorage.setItem('745269_theme', 'light')
   }
 }
+
+// 🔔 跳转到反馈页面
+const goToFeedback = () => {
+  activeTab.value = 'feedback'
+}
 // ======================================================
 
 // ================== 🔐 登录系统逻辑 (未作修改) ==================
@@ -161,6 +176,8 @@ const handleLogin = async () => {
     loginForm.value = { username: '', password: '', captcha: '' }
     requireCaptcha.value = false
     gameStore.fetchGames(false)
+    // 🔔 登录成功后加载反馈数量
+    gameStore.fetchFeedbacks()
   }
 }
 // ======================================================
@@ -186,7 +203,11 @@ const startCooldown = (secondsRemaining) => {
 }
 
 onMounted(() => {
-  if (gameStore.isAdminLoggedIn) gameStore.fetchGames(false)
+  if (gameStore.isAdminLoggedIn) {
+    gameStore.fetchGames(false)
+    // 🔔 加载未处理反馈数量
+    gameStore.fetchFeedbacks()
+  }
 
   const savedTheme = localStorage.getItem('745269_theme')
   if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -309,6 +330,57 @@ const handleSearch = async () => {
   border-color: var(--color-admin-primary, #2DD4BF);
   background-color: var(--bg-hover, #F8FAFC);
   transform: scale(1.05);
+}
+
+/* 🔔 消息提醒按钮 */
+.notification-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  color: var(--text-muted, #64748B);
+  border: 2px solid var(--border-main, #E2E8F0);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+.notification-btn:hover {
+  color: var(--color-admin-primary, #2DD4BF);
+  border-color: var(--color-admin-primary, #2DD4BF);
+  background-color: var(--bg-hover, #F8FAFC);
+  transform: scale(1.05);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  box-shadow: 0 2px 6px rgba(244, 63, 94, 0.4);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }
 
 .logout-btn { background: rgba(244, 63, 94, 0.1); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.2); padding: 8px 16px; border-radius: 100px; font-weight: 700; transition: 0.2s; cursor: pointer; }
