@@ -185,7 +185,8 @@
           </div>
         </div>
 
-        <button class="reset-btn" @click="resetToQuestions">
+        <!-- 重新占卜按钮：仅管理员可见 -->
+        <button v-if="isAdmin" class="reset-btn" @click="resetToQuestions">
           🔄 重新占卜
         </button>
       </div>
@@ -226,7 +227,7 @@ const isLoading = ref(false)
 
 // 检查是否是管理员（从 gameStore 获取）
 const isAdmin = computed(() => {
-  return gameStore.isAdmin || false
+  return gameStore.isAdminLoggedIn || false
 })
 
 // 用户选择
@@ -279,8 +280,10 @@ const loadTodayLottery = () => {
     const data = JSON.parse(stored)
     const today = getTodayString()
 
-    // 如果日期不是今天，返回 null（数据过期）
+    // 如果日期不是今天，清除过期数据并返回 null
     if (data.date !== today) {
+      localStorage.removeItem(LOTTERY_STORAGE_KEY)
+      console.log('清除过期的抽卡数据')
       return null
     }
 
@@ -334,6 +337,14 @@ const clearLotteryStorage = () => {
 
 // 根据用户选择生成卡片（添加加载动画）
 const generateCards = async () => {
+  // 🌟 首先检查本地存储是否有今日数据
+  const todayData = loadTodayLottery()
+  if (todayData) {
+    console.log('从本地存储加载今日抽卡数据')
+    restoreCardsFromStorage(todayData)
+    return
+  }
+
   // 显示加载状态
   isLoading.value = true
 
@@ -474,13 +485,15 @@ const generateCards = async () => {
   currentStep.value = 'cards'
 }
 
-// 翻牌方法（可以翻开所有卡片，翻开后可点击跳转）
+// 翻牌方法（每天只能翻一次，翻开后更新本地存储）
 const flipCard = (index) => {
   const card = cards.value[index]
 
   if (!card.isFlipped) {
     // 第一次点击：翻开卡片
     card.isFlipped = true
+    // 更新本地存储，保存翻开状态
+    saveLotteryToStorage(cards.value)
   } else {
     // 第二次点击：跳转到游戏详情页并关闭弹窗
     if (card.game && card.game.id) {
@@ -515,8 +528,11 @@ const getRarityText = (rarity) => {
   return rarityMap[rarity] || '未知'
 }
 
-// 重置到问答阶段
+// 重置到问答阶段（管理员专用：重新占卜）
 const resetToQuestions = () => {
+  // 清除本地存储
+  clearLotteryStorage()
+  // 重置状态
   currentStep.value = 'question'
   isLoading.value = false
   selectedGenres.value = []
@@ -525,13 +541,10 @@ const resetToQuestions = () => {
   cards.value = []
 }
 
-// 关闭弹窗
+// 关闭弹窗（不删除本地存储，只关闭界面）
 const closeLottery = () => {
   emit('close')
-  // 延迟重置，等动画结束
-  setTimeout(() => {
-    resetToQuestions()
-  }, 300)
+  // 不再调用 resetToQuestions()，保持数据不变
 }
 
 // 点击遮罩层关闭
@@ -542,7 +555,15 @@ const handleOverlayClick = () => {
 // 监听弹窗打开
 watch(() => props.isVisible, (newVal) => {
   if (newVal) {
-    resetToQuestions()
+    // 弹窗打开时，检查是否有今日数据
+    const todayData = loadTodayLottery()
+    if (todayData) {
+      // 如果有今日数据，直接显示卡片
+      restoreCardsFromStorage(todayData)
+    } else {
+      // 否则重置到问答界面
+      resetToQuestions()
+    }
   }
 })
 
@@ -551,7 +572,13 @@ watch(() => route.path, (newPath, oldPath) => {
   // 如果记录了抽卡完成路径，且当前路径回到了该路径，且弹窗未打开
   if (lotteryCompletePath.value && newPath === lotteryCompletePath.value && !props.isVisible) {
     // 从详情页返回到抽卡页面，重新打开弹窗显示已翻开的卡片
-    emit('open')
+    const todayData = loadTodayLottery()
+    if (todayData) {
+      // 恢复卡片数据
+      restoreCardsFromStorage(todayData)
+      // 重新打开弹窗
+      emit('open')
+    }
   }
 
   // 如果离开了抽卡完成路径，清除记录
