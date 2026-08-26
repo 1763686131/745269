@@ -143,3 +143,12 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+
+-- =========================================================
+-- 8. 初始化默认管理员账号 (仅在不存在时插入)
+-- =========================================================
+-- 🔐 默认账号: admin / admin123
+-- ⚠️ 生产环境请立即修改密码！
+INSERT OR IGNORE INTO users (username, password, role, status)
+VALUES ('admin', 'admin123', 'admin', 'active');
