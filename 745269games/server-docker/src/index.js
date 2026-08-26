@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto'; // 用于生成 UUID
+import bcrypt from 'bcrypt'; // 🔥 用于密码哈希加密
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,16 +87,38 @@ const formatGameData = (results) => {
   }));
 };
 
-// ================= 密码验证（纯明文模式） =================
-const verifyPassword = (password, stored) => {
+// ================= 🔥 密码哈希加密与验证 =================
+// 1. 加密密码（注册或修改密码时使用）
+const hashPassword = async (plainPassword) => {
+  try {
+    const saltRounds = 10; // 加密强度，10 是推荐值
+    const hashed = await bcrypt.hash(plainPassword, saltRounds);
+    console.log('[哈希加密] 明文密码已加密');
+    return hashed;
+  } catch (error) {
+    console.error('[哈希加密] ❌ 加密失败:', error.message);
+    throw error;
+  }
+};
+
+// 2. 验证密码（登录时使用）
+const verifyPassword = async (plainPassword, hashedPassword) => {
   try {
     console.log('[验证密码] 开始验证...');
-    console.log('[验证密码] 输入密码:', password);
-    console.log('[验证密码] 存储密码:', stored);
+    console.log('[验证密码] 输入密码:', plainPassword);
+    console.log('[验证密码] 存储密码:', hashedPassword.substring(0, 20) + '...');
 
-    // 🔥 直接使用明文比对，完全移除哈希验证
-    const result = (password === stored);
-    console.log('[验证密码] 比对结果:', result ? '✅ 成功' : '❌ 失败');
+    // 🔥 判断：如果数据库存的是明文（兼容旧数据）
+    if (!hashedPassword.startsWith('$2b$') && !hashedPassword.startsWith('$2a$')) {
+      console.log('[验证密码] 检测到明文密码，直接比对');
+      const result = (plainPassword === hashedPassword);
+      console.log('[验证密码] 比对结果:', result ? '✅ 成功' : '❌ 失败');
+      return result;
+    }
+
+    // 🔥 使用 bcrypt 验证哈希密码
+    const result = await bcrypt.compare(plainPassword, hashedPassword);
+    console.log('[验证密码] 哈希比对结果:', result ? '✅ 成功' : '❌ 失败');
     return result;
   } catch (error) {
     console.error('[验证密码] ❌ 异常:', error.message);
@@ -607,19 +630,27 @@ app.get('/api/users', verifyAdmin, (req, res) => {
 });
 
 // 14. 新增用户
-app.post('/api/users', verifyAdmin, (req, res) => {
-  const body = req.body;
-  const existingUser = db.prepare("SELECT id FROM users WHERE username = ?").get(body.username);
+app.post('/api/users', verifyAdmin, async (req, res) => {
+  try {
+    const body = req.body;
+    const existingUser = db.prepare("SELECT id FROM users WHERE username = ?").get(body.username);
 
-  if (existingUser) {
-    return res.status(400).json({ success: false, error: "用户名已存在，请换一个" });
+    if (existingUser) {
+      return res.status(400).json({ success: false, error: "用户名已存在，请换一个" });
+    }
+
+    // 🔥 使用哈希加密密码
+    const hashedPassword = await hashPassword(body.password || '');
+
+    db.prepare(`
+      INSERT INTO users (username, password, email, role, status) VALUES (?, ?, ?, ?, ?)
+    `).run(body.username, hashedPassword, body.email || '', body.role || 'user', 'active');
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ 添加用户失败:', error);
+    res.status(500).json({ success: false, error: '添加用户失败' });
   }
-
-  db.prepare(`
-    INSERT INTO users (username, password, email, role, status) VALUES (?, ?, ?, ?, ?)
-  `).run(body.username, hashPassword(body.password || ''), body.email || '', body.role || 'user', 'active');
-
-  res.json({ success: true });
 });
 
 // 15. 删除用户
@@ -733,7 +764,7 @@ app.post('/api/login', (req, res) => {
     }
 
     console.log('开始验证密码...');
-    const passwordValid = verifyPassword(body.password || '', user.password);
+    const passwordValid = await verifyPassword(body.password || '', user.password);
     console.log('密码验证结果:', passwordValid);
 
     if (!passwordValid) {
