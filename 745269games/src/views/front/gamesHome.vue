@@ -84,17 +84,17 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          
-          <input 
+
+          <input
             v-model="searchQuery"
             type="text"
             :placeholder="t.placeholder"
             class="search-core-input"
             @keyup.enter="executeSearch"
           />
-          
-          <button 
-            class="search-go-btn" 
+
+          <button
+            class="search-go-btn"
             :class="{ 'is-disabled': searchCooldown > 0 || isSearching }"
             @click="executeSearch"
           >

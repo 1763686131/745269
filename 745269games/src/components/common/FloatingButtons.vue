@@ -2,10 +2,10 @@
   <div v-if="!isAdminRoute" class="floating-buttons-wrapper">
     <!-- 1. 返回顶部按钮 -->
     <transition name="fade">
-      <button 
-        v-if="showScrollTop" 
-        class="float-btn btn-scroll-top" 
-        @click="scrollToTop" 
+      <button
+        v-if="showScrollTop"
+        class="float-btn btn-scroll-top"
+        @click="scrollToTop"
         title="返回顶部"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -14,6 +14,17 @@
         <span class="tooltip">返回顶部</span>
       </button>
     </transition>
+
+    <!-- 🎰 每日抽奖按钮 -->
+    <button class="float-btn lottery-btn" @click="openLotteryModal" title="每日抽奖">
+      <div class="lottery-card-icon"></div>
+      <!-- 提示气泡 -->
+      <transition name="tooltip-fade">
+        <span v-if="showLotteryTip" class="lottery-tip">
+          不知道玩啥？点击我吧
+        </span>
+      </transition>
+    </button>
 
     <!-- 2. 加QQ群按钮 -->
     <button
@@ -27,24 +38,10 @@
       <span class="tooltip">交流QQ群</span>
     </button>
 
-    <!-- 🌟 每日抽奖按钮 -->
-    <button
-      class="float-btn btn-lottery"
-      @click="openLotteryModal"
-      title="每日抽奖"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-        <line x1="8" y1="21" x2="16" y2="21"></line>
-        <line x1="12" y1="17" x2="12" y2="21"></line>
-      </svg>
-      <span class="tooltip">每日抽奖</span>
-    </button>
-
     <!-- 3. 反馈问题按钮 -->
-    <button 
-      class="float-btn btn-feedback" 
-      @click="openFeedbackModal" 
+    <button
+      class="float-btn btn-feedback"
+      @click="openFeedbackModal"
       title="反馈问题 / 跪求资源"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -161,8 +158,61 @@ const openFeedbackModal = () => {
 
 // ================= 🌟 每日抽奖弹窗逻辑 =================
 const showLottery = ref(false)
+const showLotteryTip = ref(false)
+let lotteryTipTimer = null
+
 const openLotteryModal = () => {
   showLottery.value = true
+  // 点击后停止提示
+  showLotteryTip.value = false
+  if (lotteryTipTimer) {
+    clearInterval(lotteryTipTimer)
+    lotteryTipTimer = null
+  }
+}
+
+// 检查今天是否已经抽过卡
+const checkTodayLottery = () => {
+  const today = new Date().toLocaleDateString('zh-CN')
+  const stored = localStorage.getItem('dailyLotteryCards')
+
+  if (!stored) return false
+
+  try {
+    const data = JSON.parse(stored)
+    return data.date === today && data.cards && data.cards.length > 0
+  } catch {
+    return false
+  }
+}
+
+// 启动提示动画
+const startLotteryTip = () => {
+  // 如果今天已经抽过，不显示提示
+  if (checkTodayLottery()) {
+    return
+  }
+
+  // 每10秒显示一次提示，持续3秒
+  lotteryTipTimer = setInterval(() => {
+    // 再次检查是否已抽卡
+    if (checkTodayLottery()) {
+      clearInterval(lotteryTipTimer)
+      lotteryTipTimer = null
+      return
+    }
+
+    showLotteryTip.value = true
+    setTimeout(() => {
+      showLotteryTip.value = false
+    }, 3000)
+  }, 10000)
+
+  // 首次立即显示
+  showLotteryTip.value = true
+  setTimeout(() => {
+    showLotteryTip.value = false
+  }, 3000)
 }
 
 // ================= 🌟 QQ群弹窗逻辑 =================
@@ -188,10 +238,17 @@ const copyQQGroup = async () => {
 // ================= 🌟 生命周期挂载 =================
 onMounted(() => {
   window.addEventListener('scroll', handleScroll)
+  // 启动抽奖提示
+  startLotteryTip()
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  // 清除抽奖提示定时器
+  if (lotteryTipTimer) {
+    clearInterval(lotteryTipTimer)
+    lotteryTipTimer = null
+  }
 })
 </script>
 
@@ -251,6 +308,90 @@ onUnmounted(() => {
 .btn-feedback:hover {
   background: #f43f5e;
   box-shadow: 0 6px 16px rgba(244, 63, 94, 0.4);
+}
+
+/* ================= 🌟 抽奖按钮样式 ================= */
+.lottery-btn {
+  position: relative;
+  /* 使用 CSS 变量适配主题 */
+}
+
+/* 卡片图标 - 长方形盒子 */
+.lottery-card-icon {
+  width: 20px;
+  height: 28px;
+  background: transparent;
+  border-radius: 3px;
+  border: 2px solid var(--text-main);
+  position: relative;
+  animation: cardGlow 2s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.lottery-card-icon::before {
+  content: '?';
+}
+
+/* 微光效果 */
+@keyframes cardGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(102, 126, 234, 0);
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(102, 126, 234, 0.8),
+                0 0 16px rgba(102, 126, 234, 0.5);
+    border-color: rgba(102, 126, 234, 1);
+  }
+}
+
+/* 抽奖提示气泡 */
+.lottery-tip {
+  position: absolute;
+  right: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.lottery-tip::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid #764ba2;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.tooltip-fade-enter-active,
+.tooltip-fade-leave-active {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.tooltip-fade-enter-from {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.tooltip-fade-leave-to {
+  opacity: 0;
+  transform: translateX(10px);
 }
 
 /* 💡 自定义精致气泡文字 */
@@ -510,10 +651,19 @@ onUnmounted(() => {
     right: 16px;
     bottom: 40px;
   }
-  
+
   .float-btn {
     width: 44px;
     height: 44px;
+  }
+
+  .lottery-card-icon {
+    width: 18px;
+    height: 26px;
+  }
+
+  .lottery-tip {
+    display: none; /* 移动端不显示提示 */
   }
 
   .tooltip {
