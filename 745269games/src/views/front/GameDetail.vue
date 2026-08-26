@@ -235,7 +235,44 @@ const handleInteraction = (type) => {
 
 const handleCopy = async (text, typeName) => {
   handleInteraction('download')
-  try { await navigator.clipboard.writeText(text); alert(`${typeName} [ ${text} ] 已成功复制！`) } catch (err) {}
+
+  // 优先使用现代 Clipboard API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      alert(`${typeName} [ ${text} ] 已成功复制！`)
+      return
+    } catch (err) {
+      console.warn('Clipboard API 失败，尝试降级方案:', err)
+    }
+  }
+
+  // 降级方案：使用传统的 document.execCommand
+  try {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'fixed'
+    textArea.style.top = '-9999px'
+    textArea.style.left = '-9999px'
+    document.body.appendChild(textArea)
+
+    // 选中文本
+    textArea.focus()
+    textArea.select()
+
+    // 尝试复制
+    const successful = document.execCommand('copy')
+    document.body.removeChild(textArea)
+
+    if (successful) {
+      alert(`${typeName} [ ${text} ] 已成功复制！`)
+    } else {
+      alert(`复制失败，请手动复制：${text}`)
+    }
+  } catch (err) {
+    console.error('复制失败:', err)
+    alert(`复制失败，请手动复制：${text}`)
+  }
 }
 
 const mediaList = computed(() => {
@@ -285,12 +322,20 @@ onMounted(async () => {
   const targetId = String(route.params.id)
   let localGame = (gameStore.allGames || []).find(g => String(g.id) === targetId)
   if (localGame) {
-    game.value = localGame; isLoading.value = false; if (currentMedia.value?.type !== 'video') startBannerTimer(); return
+    game.value = localGame
+    isLoading.value = false
+    preloadQrCodes() // 预加载二维码
+    if (currentMedia.value?.type !== 'video') startBannerTimer()
+    return
   }
   try {
     isLoading.value = true
     const fetchedGame = await gameStore.fetchGameById(targetId)
-    if (fetchedGame) { game.value = fetchedGame; if (currentMedia.value?.type !== 'video') startBannerTimer() }
+    if (fetchedGame) {
+      game.value = fetchedGame
+      preloadQrCodes() // 预加载二维码
+      if (currentMedia.value?.type !== 'video') startBannerTimer()
+    }
   } catch (error) {} finally { isLoading.value = false }
 })
 
@@ -301,6 +346,26 @@ onUnmounted(() => {
 })
 
 const goBack = () => { router.back() }
+
+// 🌟 预加载所有二维码图片
+const preloadQrCodes = () => {
+  if (!game.value?.downloads) return
+
+  const qrUrls = []
+  game.value.downloads.forEach(dl => {
+    if (dl.sources && Array.isArray(dl.sources)) {
+      dl.sources.forEach(src => {
+        if (src.qr_code) qrUrls.push(src.qr_code)
+      })
+    }
+  })
+
+  // 创建 Image 对象预加载
+  qrUrls.forEach(url => {
+    const img = new Image()
+    img.src = url
+  })
+}
 
 const formatDate = (str) => {
   if (!str) return '未知时间'
