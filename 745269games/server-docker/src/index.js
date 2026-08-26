@@ -714,7 +714,7 @@ app.delete('/api/analytics/logs', verifyAdmin, (req, res) => {
 });
 
 // 18. 后台管理员高安全登录
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   try {
     console.log('=== 登录请求开始 ===');
     const body = req.body;
