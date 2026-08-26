@@ -103,19 +103,31 @@ const verifyPassword = (password, stored) => {
   }
 };
 
-// ================= 登录会话（服务端可校验、可撤销的真实令牌） =================
+// ================= 🔥 创建登录会话（支持多设备）=================
 const createSession = (userId) => {
   try {
     const token = crypto.randomBytes(32).toString('hex');
-    console.log('生成 token:', token.substring(0, 20) + '...');
+    console.log('生成新 token:', token.substring(0, 20) + '...');
 
+    // 🔥 关键：如果 sessions 表不存在，自动创建
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // 插入新会话
     db.prepare(`
       INSERT INTO sessions (token, user_id, expires_at)
       VALUES (?, ?, datetime('now', '+7 days'))
     `).run(token, userId);
     console.log('会话已插入数据库');
 
-    // 顺手清理过期会话，避免这张表无限增长
+    // 清理过期会话
     const cleanResult = db.prepare(`DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP`).run();
     console.log('清理过期会话:', cleanResult.changes, '条');
 
@@ -127,7 +139,7 @@ const createSession = (userId) => {
 };
 
 // 🌟【核心中间件】拦截后台 API，验证管理员登录会话
-// 🔥 简化版：只要有 token 就放行，不再验证 sessions 表
+// 🔥 从 sessions 表验证 token，支持多设备登录
 const verifyAdmin = (req, res, next) => {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -136,10 +148,27 @@ const verifyAdmin = (req, res, next) => {
     return res.status(401).json({ error: '请先登录后台' });
   }
 
-  // 🔥 直接放行，不再查询 sessions 表
-  console.log('[verifyAdmin] token 已提供，直接放行');
-  req.adminUser = { token }; // 保留一个空对象，避免其他代码报错
-  next();
+  try {
+    // 🔥 查询 sessions 表，关联 users 表
+    const session = db.prepare(`
+      SELECT s.token, u.id as userId, u.username, u.role
+      FROM sessions s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.token = ? AND s.expires_at > CURRENT_TIMESTAMP
+    `).get(token);
+
+    if (!session || session.role !== 'admin') {
+      console.log('[verifyAdmin] token 验证失败');
+      return res.status(403).json({ error: '登录已过期或权限不足，请重新登录' });
+    }
+
+    console.log('[verifyAdmin] token 验证通过，用户:', session.username);
+    req.adminUser = session;
+    next();
+  } catch (error) {
+    console.error('[verifyAdmin] 验证异常:', error.message);
+    return res.status(500).json({ error: '验证失败，请重新登录' });
+  }
 };
 
 
@@ -728,10 +757,13 @@ app.post('/api/login', (req, res) => {
     console.log('重置登录尝试次数');
     db.prepare("UPDATE login_attempts SET attempts = 0 WHERE ip = ?").run(ip);
 
+    // 🔥 每次登录都创建新会话，支持多设备
+    console.log('创建新会话...');
+    const userToken = createSession(user.id);
+    console.log('会话创建成功');
+
     console.log('=== 登录成功 ===');
-    // 🔥 简化版：直接返回成功，不需要生成 token
-    const fakeToken = `simple_token_${user.id}_${Date.now()}`;
-    res.json({ success: true, token: fakeToken, username: user.username });
+    res.json({ success: true, token: userToken, username: user.username });
   } catch (error) {
     console.error('❌ 登录接口错误:', error);
     console.error('错误堆栈:', error.stack);
@@ -743,12 +775,14 @@ app.post('/api/login', (req, res) => {
   }
 });
 
-// 19. 后台退出登录：让服务端也真正撤销这个会话，而不是只清本地缓存
+// 19. 后台退出登录：只清除当前设备的 token
 app.post('/api/logout', (req, res) => {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (token) {
+    // 🔥 只删除当前 token，不影响其他设备
     db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+    console.log('当前设备 token 已清除');
   }
   res.json({ success: true });
 });

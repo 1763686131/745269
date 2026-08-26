@@ -84,12 +84,14 @@ CREATE INDEX IF NOT EXISTS idx_feedbacks_is_handled ON feedbacks(is_handled);
 
 
 -- =========================================================
--- 4. 论坛社区/全站用户表 (Users) 
+-- 4. 论坛社区/全站用户表 (Users)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
+  token TEXT,                     -- 🔥 新增：登录令牌（可清空重置）
+  password_hash TEXT,             -- 🔥 新增：密码哈希（可清空重置）
   email TEXT UNIQUE,
   avatar_url TEXT,
   role TEXT DEFAULT 'user',      -- admin | user
