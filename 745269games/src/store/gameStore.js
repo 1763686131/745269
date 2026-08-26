@@ -6,9 +6,9 @@ const API_BASE_URL = ''
 
 export const useGameStore = defineStore('game', () => {
   const isLoading = ref(false)
-  const allGames = ref([]) 
+  const allGames = ref([])
   const isAdminLoggedIn = ref(localStorage.getItem('745269_admin_token') ? true : false)
-  
+
   const currentOffset = ref(0)
   const hasMore = ref(true)
 
@@ -93,16 +93,16 @@ export const useGameStore = defineStore('game', () => {
         allGames.value = []
         hasMore.value = true
       }
-      
+
       // 🌟 核心突破口：智能限流！
       // 如果是管理员，直接拉取 5000 条进内存，供后台零延迟分页、搜索和筛选！
-      const fetchLimit = isAdminLoggedIn.value ? 10000 : 2000; 
-      
+      const fetchLimit = isAdminLoggedIn.value ? 10000 : 2000;
+
       // 🌟 核心拆分：前台走公开通道，后台走专属鉴权通道
-      let url = isAdminLoggedIn.value 
+      let url = isAdminLoggedIn.value
         ? `${API_BASE_URL}/api/admin/games?limit=${fetchLimit}&offset=${currentOffset.value}`
         : `${API_BASE_URL}/api/games?limit=${fetchLimit}&offset=${currentOffset.value}`
-        
+
       if (tags) {
         url += `&tags=${encodeURIComponent(tags)}`
       }
@@ -118,10 +118,10 @@ export const useGameStore = defineStore('game', () => {
       const response = await fetch(url, { headers })
       if (!response.ok) throw new Error('网络请求失败')
       const data = await response.json()
-      
+
       // 如果拿回来的数据少于请求的限制，说明真的被掏空了，没有更多了
       if (data.length < fetchLimit) hasMore.value = false
-      
+
       const parsedData = (Array.isArray(data) ? data : []).map(parseGameData)
       allGames.value.push(...parsedData)
       currentOffset.value += fetchLimit

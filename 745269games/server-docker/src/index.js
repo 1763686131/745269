@@ -185,12 +185,105 @@ app.get('/api/games/search', (req, res) => {
   const searchTerm = `%${keyword}%`;
 
   const results = db.prepare(`
-    SELECT * FROM games 
-    WHERE is_active = 1 AND (title_zh LIKE ? OR title_en LIKE ?) 
+    SELECT * FROM games
+    WHERE is_active = 1 AND (title_zh LIKE ? OR title_en LIKE ?)
     ORDER BY id DESC
   `).all(searchTerm, searchTerm);
-  
+
   res.json(formatGameData(results));
+});
+
+// 🌟 2.5 前台：随机抽取游戏（抽奖专用）
+app.post('/api/games/random', (req, res) => {
+  try {
+    const { genres = [], players, platform, count = 4 } = req.body;
+
+    console.log('📦 收到抽奖请求:', { genres, players, platform, count });
+
+    // 基础条件：只抽取上架游戏
+    let sql = "SELECT * FROM games WHERE is_active = 1";
+    const bindParams = [];
+
+    // 1. 游戏类型筛选
+    if (genres && genres.length > 0) {
+      const mainGenres = ['动作', '冒险', '模拟', '角色扮演', '休闲'];
+      const hasOther = genres.includes('其他');
+      const normalGenres = genres.filter(g => g !== '其他');
+
+      if (hasOther && normalGenres.length > 0) {
+        // 选了"其他"和具体类型
+        const genreConditions = [];
+        const notMainConditions = [];
+
+        normalGenres.forEach(g => {
+          genreConditions.push("metadata_json LIKE ?");
+          bindParams.push(`%${g}%`);
+        });
+
+        mainGenres.forEach(g => {
+          notMainConditions.push("metadata_json NOT LIKE ?");
+          bindParams.push(`%${g}%`);
+        });
+
+        sql += " AND ((" + genreConditions.join(" OR ") + ") OR (" + notMainConditions.join(" AND ") + "))";
+      } else if (hasOther) {
+        // 只选了"其他"：匹配不属于主要类型的游戏
+        mainGenres.forEach(g => {
+          sql += " AND metadata_json NOT LIKE ?";
+          bindParams.push(`%${g}%`);
+        });
+      } else {
+        // 只选了具体类型
+        const genreConditions = normalGenres.map(() => "metadata_json LIKE ?");
+        sql += " AND (" + genreConditions.join(" OR ") + ")";
+        normalGenres.forEach(g => bindParams.push(`%${g}%`));
+      }
+    }
+
+    // 2. 游戏人数筛选
+    if (players) {
+      if (players === 'single') {
+        sql += " AND metadata_json LIKE ?";
+        bindParams.push('%单人%');
+      } else if (players === 'multi') {
+        sql += " AND (metadata_json LIKE ? OR metadata_json LIKE ?)";
+        bindParams.push('%双人%', '%派对%');
+      } else if (players === 'lan') {
+        sql += " AND metadata_json LIKE ?";
+        bindParams.push('%派对%');
+      }
+    }
+
+    // 3. 平台筛选
+    if (platform) {
+      sql += " AND metadata_json LIKE ?";
+      bindParams.push(`%${platform}%`);
+    }
+
+    console.log('🔍 执行 SQL:', sql);
+    console.log('🔍 参数:', bindParams);
+
+    // 查询符合条件的所有游戏
+    const allMatched = db.prepare(sql).all(...bindParams);
+
+    console.log('✅ 匹配到游戏数量:', allMatched.length);
+
+    // 如果结果少于请求数量，直接返回
+    if (allMatched.length <= count) {
+      return res.json(formatGameData(allMatched));
+    }
+
+    // 🌟 随机打乱并抽取指定数量
+    const shuffled = allMatched.sort(() => Math.random() - 0.5);
+    const randomGames = shuffled.slice(0, count);
+
+    console.log('🎲 随机抽取了', randomGames.length, '个游戏');
+
+    res.json(formatGameData(randomGames));
+  } catch (error) {
+    console.error('❌ 随机抽取失败:', error);
+    res.status(500).json({ error: '抽取失败: ' + error.message });
+  }
 });
 
 

@@ -8,45 +8,54 @@
 
 ### 前端目录结构
 
-```Plaintext
-
+```plaintext
 src/
-├── assets/             # 静态资源
-│   ├── images/         # 图片、Logo
-│   └── styles/         # 全局样式库 (把 theme.css 移到这里)
-│       ├── reset.css   # 全局样式重置
-│       └── theme.css   # 全局 CSS 变量（主题库）
-├── components/         # 公共/基础组件 (跨页面复用)
-│   ├── common/         # 如：BaseButton.vue, SearchBar.vue
-│   │     └──FeedbackModal.vue   # 公共的反馈提交表单
-│   ├── front/          # 前台专用小组件：NavBar.vue, GameCard.vue
-│   └── admin/          # 后台专用小组件：AdminSidebar.vue
-│         ├──GameFormModal.vue   # 修改&上传编辑游戏组件
-│         ├──AccessStats.vue     # 后台访客组件
-│         ├──FeedbackList.vue    # 后台反馈组件
-│         └──UserList.vue        # 后台用户数据组件
-├── layouts/            # 布局包裹层 (重要！)
-│   ├── FrontLayout.vue # 前台布局 (包含前台Header和Footer)
-│   └── AdminLayout.vue # 后台布局 (包含左侧菜单和顶部面包屑)
-├── views/              # 页面级视图 (配合 Vue Router 使用)
-│   ├── front/
-│   │   ├── gamesHome.vue    # 前台首页 (原 GameHome.vue 的主体)
+├── assets/                  # 静态资源
+│   └── styles/              # 全局样式库
+│       ├── reset.css        # 全局样式重置
+│       └── theme.css        # 全局 CSS 变量（主题库）
+├── components/              # 公共/基础组件（跨页面复用）
+│   ├── common/              # 通用组件
+│   │   ├── ConfirmModal.vue      # 确认弹窗
+│   │   ├── DailyLottery.vue      # 每日抽奖组件（支持 localStorage 持久化）
+│   │   ├── FeedbackModal.vue     # 用户反馈表单
+│   │   ├── FloatingButtons.vue   # 悬浮按钮（反馈、QQ 群等）
+│   │   └── Pagination.vue        # 分页组件
+│   ├── front/               # 前台专用组件（目前为空，预留）
+│   └── admin/               # 后台专用组件
+│       ├── AccessStats.vue       # 访客统计
+│       ├── FeedbackList.vue      # 反馈列表
+│       ├── GameFormModal.vue     # 游戏编辑表单
+│       ├── GameManager.vue       # 游戏管理器
+│       └── UserList.vue          # 用户数据列表
+├── layouts/                 # 布局包裹层
+│   ├── FrontLayout.vue      # 前台布局（Header + Footer）
+│   └── AdminLayout.vue      # 后台布局（侧边栏 + 面包屑）
+├── views/                   # 页面级视图（配合 Vue Router）
+│   ├── front/               # 前台页面
+│   │   ├── gamesHome.vue    # 前台首页
 │   │   ├── Column.vue       # 游戏分类栏目
-│   │   └── GameDetail.vue   # 游戏详情 (原 CategoryDetail.vue)
-│   └── admin/
-│       ├── Dashboard.vue
-│       └── GameList.vue     # 游戏管理列表 (原 GameAdminUpload.vue 的主体)
+│   │   └── GameDetail.vue   # 游戏详情页
+│   └── admin/               # 后台页面
+│       ├── Dashboard.vue    # 仪表盘
+│       └── GameList.vue     # 游戏管理列表
 ├── store/                   # Pinia 状态管理
 │   ├── index.js             # Pinia 实例化
-│   └── gameStore.js         # 游戏数据仓库
-├── router/             
-│   └── index.js        # 路由配置 
-├── services/           
-│   └── api.js          # 🌐 API 请求层 
-├── utils/              # 🛠️ 工具函数 (如日期格式化、数据清洗)
-└── main.js             # 入口文件
-
+│   └── gameStore.js         # 游戏数据仓库（管理游戏列表、筛选、分页）
+├── Router/                  # 路由配置
+│   └── index.js             # Vue Router 路由表
+├── services/                # API 请求层
+│   └── api.js               # 封装后端接口调用
+├── App.vue                  # 根组件
+├── main.js                  # 入口文件
+└── style.css                # 全局样式（根样式）
 ```
+
+**说明**：
+- `components/common/DailyLottery.vue` - 每日抽奖功能，直接调用后端 `/api/games/random` 接口
+- `store/gameStore.js` - 负责游戏列表展示，一次加载全部数据用于前端筛选
+- `components/front/` - 预留给未来的前台专用小组件（如导航栏、游戏卡片等）
+
 
 ### Cloudflare后端目录结构
 
@@ -109,10 +118,38 @@ server-docker/
 确保你在 server-docker 目录下
 
 ```bash
-
+# 构建并启动容器（后台运行）
 docker-compose up -d --build
 
+# 查看容器日志
+docker logs 745269-nas-app
+
+# 重启容器
+docker-compose restart
+
+# 停止容器
+docker-compose down
 ```
+
+### API 接口说明
+
+#### 抽奖接口
+- **路径**: `POST /api/games/random`
+- **功能**: 从数据库随机抽取符合条件的游戏
+- **请求参数**:
+  ```json
+  {
+    "genres": ["动作", "冒险"],  // 游戏类型（可选）
+    "players": "single",         // 游戏人数：single/multi/lan（可选）
+    "platform": "Switch",        // 平台（可选）
+    "count": 4                   // 抽取数量
+  }
+  ```
+- **返回**: 返回随机抽取的游戏数组
+
+#### 游戏列表接口
+- **路径**: `GET /api/games`
+- **功能**: 获取所有已上架游戏（前端使用 Pinia store 管理）
 
 <br />
 
@@ -143,7 +180,13 @@ docker-compose up -d --build
 
 <br />
 
-* [ ] 不知道玩啥？每日抽奖，四张卡片
+* [x] 不知道玩啥？每日抽奖，四张卡片
+  - 每日抽奖使用浏览器 localStorage 保存当日抽取的卡片
+  - 卡片翻转状态会实时保存（0=未翻开，1=已翻开）
+  - 每天凌晨 0:00 后首次打开会自动清除昨日数据
+  - 管理员账号会显示"重新占卜"按钮，可清除本地存储
+  - 金色稀有卡片有特殊动画效果（边框呼吸效果、翻转速度变慢）
+  - 抽奖数据从后端数据库随机抽取，支持按类型/人数/平台筛选
 
 * [x] 增加返回首页按钮
 

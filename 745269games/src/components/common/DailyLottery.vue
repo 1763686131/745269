@@ -332,7 +332,7 @@ const clearLotteryStorage = () => {
   }
 }
 
-// 根据用户选择生成卡片（添加加载动画）
+// 根据用户选择生成卡片（调用后端随机抽取 API）
 const generateCards = async () => {
   // 🌟 首先检查本地存储是否有今日数据
   const todayData = loadTodayLottery()
@@ -345,141 +345,69 @@ const generateCards = async () => {
   // 显示加载状态
   isLoading.value = true
 
-  // 如果本地没有数据，先从服务器获取
-  if (gameStore.allGames.length === 0) {
-    await gameStore.fetchGames(false, '') // 获取所有游戏
-  }
+  try {
+    // 模拟加载延迟（让用户看到"探索星辰大海"的动画）
+    await new Promise(resolve => setTimeout(resolve, 1500))
 
-  // 模拟加载延迟（让用户看到"探索星辰大海"的动画）
-  await new Promise(resolve => setTimeout(resolve, 1500))
-
-  // 定义主要类型
-  const mainGenres = ['动作', '冒险', '模拟', '角色扮演', '休闲']
-
-  console.log('开始筛选，当前游戏总数：', gameStore.allGames.length)
-  console.log('筛选条件 - 类型：', selectedGenres.value)
-  console.log('筛选条件 - 人数：', selectedPlayers.value)
-  console.log('筛选条件 - 平台：', selectedPlatform.value)
-
-  // 根据用户选择筛选游戏
-  let filteredGames = gameStore.allGames.filter(game => {
-    // 筛选条件1：游戏类型
-    let hasMatchingGenre = false
-
-    if (selectedGenres.value.length === 0) {
-      hasMatchingGenre = true
-    } else {
-      const gameGenres = game.metadata?.genres || []
-
-      // 检查是否选择了"其他"
-      const hasOtherSelected = selectedGenres.value.includes('其他')
-      // 检查游戏是否属于主要类型
-      const belongsToMainGenres = gameGenres.some(g => mainGenres.includes(g))
-
-      // 遍历用户选择的类型
-      for (const selectedGenre of selectedGenres.value) {
-        if (selectedGenre === '其他') {
-          // 如果选了"其他"，匹配不属于主要类型的游戏
-          if (!belongsToMainGenres) {
-            hasMatchingGenre = true
-            break
-          }
-        } else {
-          // 匹配具体类型
-          if (gameGenres.includes(selectedGenre)) {
-            hasMatchingGenre = true
-            break
-          }
-        }
-      }
-    }
-
-    // 筛选条件2：游戏人数（根据栏目分类）
-    let matchesPlayerMode = true
-    if (selectedPlayers.value) {
-      const category = game.metadata?.category || ''
-
-      if (selectedPlayers.value === 'single') {
-        matchesPlayerMode = category === 'single'
-      } else if (selectedPlayers.value === 'multi') {
-        matchesPlayerMode = category === 'double' || category === 'multi'
-      } else if (selectedPlayers.value === 'lan') {
-        matchesPlayerMode = category === 'multi'
-      }
-    }
-
-    // 筛选条件3：游戏平台
-    let matchesPlatform = true
-    if (selectedPlatform.value) {
-      const platforms = game.metadata?.platforms || []
-      // 使用与 Column.vue 一致的筛选逻辑
-      matchesPlatform = platforms.some(p => {
-        const platformUpper = (p || '').toString().toUpperCase()
-        return platformUpper.includes(selectedPlatform.value)
+    // 🌟 直接调用后端随机抽取 API，不再从 gameStore 筛选
+    const API_BASE_URL = ''
+    const response = await fetch(`${API_BASE_URL}/api/games/random`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        genres: selectedGenres.value,
+        players: selectedPlayers.value,
+        platform: selectedPlatform.value,
+        count: 4
       })
+    })
+
+    if (!response.ok) {
+      throw new Error('随机抽取失败')
     }
 
-    return hasMatchingGenre && matchesPlayerMode && matchesPlatform
-  })
+    const randomGames = await response.json()
 
-  console.log('筛选后游戏数量：', filteredGames.length)
-  if (filteredGames.length > 0) {
-    console.log('筛选结果示例（前3个）：', filteredGames.slice(0, 3).map(g => ({
-      title: g.title?.zh_CN,
-      platforms: g.metadata?.platforms
-    })))
-  }
+    // 🌟 如果数据库返回的数据小于4条，显示"补充中..."提示
+    if (randomGames.length < 4) {
+      alert('符合条件的游戏不足4款，正在补充中...')
+      isLoading.value = false
+      currentStep.value = 'question'
+      return
+    }
 
-  // 如果筛选结果少于4个，从所有游戏中补充
-  if (filteredGames.length < 4) {
-    filteredGames = gameStore.allGames.slice(0)
-  }
+    // 随机指定一张金色传说
+    const legendaryIndex = Math.floor(Math.random() * randomGames.length)
 
-  // 🌟 如果数据库返回的数据小于4条，显示"补充中..."提示
-  if (filteredGames.length < 4) {
-    alert('符合条件的游戏不足4款，正在补充中...')
+    // 生成卡片
+    cards.value = randomGames.map((game, index) => {
+      let rarity
+      if (index === legendaryIndex) {
+        rarity = 'legendary'
+      } else {
+        const rarities = ['common', 'rare', 'epic']
+        rarity = rarities[Math.floor(Math.random() * rarities.length)]
+      }
+
+      return {
+        game: game,
+        isFlipped: false,
+        rarity: rarity
+      }
+    })
+
+    // 保存到本地存储
+    saveLotteryToStorage(cards.value)
+
+    // 隐藏加载，显示卡片
     isLoading.value = false
-    currentStep.value = 'question' // 返回问答界面
-    return
-  }
-
-  // 如果还是没有数据（数据库为空的情况）
-  if (filteredGames.length === 0) {
-    alert('暂无游戏数据，请稍后再试')
+    currentStep.value = 'cards'
+  } catch (error) {
+    console.error('抽取卡片失败:', error)
+    alert('抽取失败，请稍后再试')
     isLoading.value = false
-    return
+    currentStep.value = 'question'
   }
-
-  // 随机抽取4个游戏（如果不足4个就全部取）
-  const shuffled = filteredGames.sort(() => 0.5 - Math.random())
-  const selectedGames = shuffled.slice(0, Math.min(4, filteredGames.length))
-
-  // 随机指定一张金色传说
-  const legendaryIndex = Math.floor(Math.random() * selectedGames.length)
-
-  // 生成卡片
-  cards.value = selectedGames.map((game, index) => {
-    let rarity
-    if (index === legendaryIndex) {
-      rarity = 'legendary'
-    } else {
-      const rarities = ['common', 'rare', 'epic']
-      rarity = rarities[Math.floor(Math.random() * rarities.length)]
-    }
-
-    return {
-      game: game,
-      isFlipped: false,
-      rarity: rarity
-    }
-  })
-
-  // 保存到本地存储
-  saveLotteryToStorage(cards.value)
-
-  // 隐藏加载，显示卡片
-  isLoading.value = false
-  currentStep.value = 'cards'
 }
 
 // 翻牌方法（每天只能翻一次，翻开后更新本地存储）
