@@ -1294,6 +1294,34 @@ watch(() => route.path, (newPath, oldPath) => {
     margin-bottom: 24px;
   }
 
+  /* 移动端隐藏游戏简介 */
+  .game-desc {
+    display: none;
+  }
+
+  /* 移动端游戏标题调整 */
+  .game-title {
+    font-size: 14px;
+    -webkit-line-clamp: 2;
+    max-height: 38px;
+    margin-bottom: 10px;
+  }
+
+  /* 移动端卡片内容区域调整 */
+  .card-content {
+    padding: 12px;
+  }
+
+  /* 移动端标签调整 */
+  .card-tags {
+    gap: 4px;
+  }
+
+  .cute-tag-pill {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
   .reward-icon {
     font-size: 48px;
   }
