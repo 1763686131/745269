@@ -73,7 +73,7 @@
     </div>
 
     <div class="game-grid-layout" v-if="displayedGames.length > 0">
-      <article class="game-card" v-for="game in paginatedGames" :key="game.id" @click="$router.push(`/game/${game.id}`)">
+      <article class="game-card" v-for="game in paginatedGames" :key="game.id" @click.capture="handleGameClick(game.id, $event)">
         <div class="card-image-wrapper">
           <img v-if="game.cover" :src="game.cover" :alt="game.title" class="game-cover-img" />
           <div v-else class="image-placeholder"><span class="placeholder-text">暂无封面</span></div>
@@ -114,12 +114,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useGameStore } from '@/store/gameStore.js' 
+import { ref, computed, onMounted, watch, onActivated } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useGameStore } from '@/store/gameStore.js'
 import Pagination from '@/components/common/Pagination.vue'
 
+// 为组件添加名称，以便 keep-alive 缓存
+defineOptions({ name: 'Column' })
+
 const route = useRoute()
+const router = useRouter()
 const gameStore = useGameStore()
 
 // ==========================================
@@ -134,7 +138,7 @@ const getInitialFilter = () => {
       return saved
     }
   } catch (e) {}
-  return { platform: '全部', genre: '全部', sortOrder: 'newest' }
+  return { platform: '全部', genre: '全部', sortOrder: 'newest', currentPage: 1 }
 }
 
 const initialFilter = getInitialFilter()
@@ -143,7 +147,7 @@ const selectedPlatform = ref(initialFilter.platform || '全部')
 const selectedGenre = ref(initialFilter.genre || '全部')
 const sortOrder = ref(initialFilter.sortOrder || 'newest')
 
-const currentPage = ref(1)
+const currentPage = ref(initialFilter.currentPage || 1)
 const pageSize = 20
 
 // ==========================================
@@ -155,12 +159,19 @@ watch([selectedPlatform, selectedGenre, sortOrder], () => {
   currentPage.value = 1
 })
 
+// 监听当前页码变化，保存状态
+watch(currentPage, () => {
+  saveFilterState()
+})
+
 const saveFilterState = () => {
   const state = {
     categoryId: route.params.id,
     platform: selectedPlatform.value,
     genre: selectedGenre.value,
-    sortOrder: sortOrder.value
+    sortOrder: sortOrder.value,
+    currentPage: currentPage.value,
+    scrollPosition: window.scrollY || document.documentElement.scrollTop // 保存滚动位置
   }
   sessionStorage.setItem('column_filter_state', JSON.stringify(state))
 }
@@ -294,23 +305,93 @@ const paginatedGames = computed(() => {
 
 const totalCount = computed(() => gameStore.allGames.length)
 
-const fetchCurrentCategoryGames = () => {
-  gameStore.fetchGames(false, currentCategory.value.tags)
+const fetchCurrentCategoryGames = (forceReload = false) => {
+  // 如果强制重新加载，或者 store 里没有数据，就从服务器加载
+  if (forceReload || gameStore.allGames.length === 0) {
+    gameStore.fetchGames(false, currentCategory.value.tags)
+  }
+}
+
+// 记录当前的栏目ID，用于判断是否真的切换了栏目
+const lastCategoryId = ref(route.params.id)
+
+// 处理游戏卡片点击，在跳转前保存滚动位置
+const handleGameClick = (gameId, event) => {
+  // 第一时间立即保存滚动位置（#app 容器的滚动位置）
+  const appElement = document.getElementById('app')
+  const currentScroll = appElement ? appElement.scrollTop : (window.scrollY || document.documentElement.scrollTop)
+
+  // 阻止默认行为
+  event?.preventDefault()
+  event?.stopPropagation()
+
+  const state = {
+    categoryId: route.params.id,
+    platform: selectedPlatform.value,
+    genre: selectedGenre.value,
+    sortOrder: sortOrder.value,
+    currentPage: currentPage.value,
+    scrollPosition: currentScroll
+  }
+  sessionStorage.setItem('column_filter_state', JSON.stringify(state))
+
+  // 延迟跳转
+  setTimeout(() => {
+    router.push(`/game/${gameId}`)
+  }, 10)
 }
 
 onMounted(() => {
-  fetchCurrentCategoryGames()
+  lastCategoryId.value = route.params.id
+  fetchCurrentCategoryGames(true) // 首次挂载强制加载
 })
 
-watch(() => route.params.id, () => {
-  if (route.name === 'Column') {
+// 当组件被 keep-alive 激活时（从详情页返回）
+onActivated(() => {
+  // 如果路由参数和上次记录的不同，说明是从首页切换到了不同栏目
+  if (route.params.id !== lastCategoryId.value) {
+    lastCategoryId.value = route.params.id
     selectedGenre.value = '全部'
     selectedPlatform.value = '全部'
     sortOrder.value = 'newest'
+    currentPage.value = 1
     saveFilterState()
-    fetchCurrentCategoryGames()
+    fetchCurrentCategoryGames(true) // 切换栏目时强制重新加载
+    // 切换栏目时滚动到顶部
+    const appElement = document.getElementById('app')
+    if (appElement) {
+      appElement.scrollTop = 0
+    } else {
+      window.scrollTo(0, 0)
+    }
+  } else {
+    // 从详情页返回时，恢复之前的滚动位置
+    const saved = JSON.parse(sessionStorage.getItem('column_filter_state') || '{}')
+    if (saved.scrollPosition !== undefined && saved.scrollPosition > 0) {
+      const appElement = document.getElementById('app')
+
+      // 立即恢复滚动位置，不使用 setTimeout，避免闪烁
+      if (appElement) {
+        // 临时禁用平滑滚动
+        const originalScrollBehavior = appElement.style.scrollBehavior
+        appElement.style.scrollBehavior = 'auto'
+
+        appElement.scrollTop = saved.scrollPosition
+
+        // 恢复平滑滚动
+        setTimeout(() => {
+          appElement.style.scrollBehavior = originalScrollBehavior
+        }, 100)
+      } else {
+        window.scrollTo({ top: saved.scrollPosition, behavior: 'auto' })
+      }
+    }
   }
 })
+
+// 当组件失活时（离开Column进入详情页时）保存当前状态
+// onDeactivated 已移除，因为我们在点击时就保存了正确的滚动位置
+// 如果在这里保存，路由切换后滚动位置已经是0，会覆盖之前保存的正确值
 
 const loadMore = () => { gameStore.fetchGames(true, currentCategory.value.tags) }
 </script>

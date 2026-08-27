@@ -319,6 +319,14 @@ const handleManualChange = (idx) => {
 }
 
 onMounted(async () => {
+  // 进入详情页时滚动到顶部（#app 容器）
+  const appElement = document.getElementById('app')
+  if (appElement) {
+    appElement.scrollTop = 0
+  } else {
+    window.scrollTo(0, 0)
+  }
+
   const targetId = String(route.params.id)
   let localGame = (gameStore.allGames || []).find(g => String(g.id) === targetId)
   if (localGame) {

@@ -18,7 +18,8 @@ onMounted(() => {
 
 <template>
   <router-view v-slot="{ Component }">
-    <keep-alive include="gamesHome"> <component :is="Component" />
+    <keep-alive :include="['gamesHome', 'Column']">
+      <component :is="Component" />
     </keep-alive>
   </router-view>
   <FloatingButtons />

@@ -9,6 +9,7 @@ WORKDIR /app
 
 # 复制配置文件并安装依赖
 COPY package*.json ./
+COPY .npmrc ./
 RUN npm install
 
 # 复制代码、数据库脚本和打包好的前端页面
