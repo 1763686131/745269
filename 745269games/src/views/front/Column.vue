@@ -343,6 +343,28 @@ const handleGameClick = (gameId, event) => {
 
 onMounted(() => {
   lastCategoryId.value = route.params.id
+
+  // 检测是否是页面刷新（F5 或 Ctrl+R）
+  // 通过 performance.navigation.type 判断：1 表示刷新，0 表示正常导航
+  const isPageRefresh = performance.navigation && performance.navigation.type === 1
+
+  if (isPageRefresh) {
+    // 页面刷新时：清除保存的状态，重置所有筛选条件
+    sessionStorage.removeItem('column_filter_state')
+    selectedGenre.value = '全部'
+    selectedPlatform.value = '全部'
+    sortOrder.value = 'newest'
+    currentPage.value = 1
+
+    // 滚动到顶部
+    const appElement = document.getElementById('app')
+    if (appElement) {
+      appElement.scrollTop = 0
+    } else {
+      window.scrollTo(0, 0)
+    }
+  }
+
   fetchCurrentCategoryGames(true) // 首次挂载强制加载
 })
 

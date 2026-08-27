@@ -3,7 +3,7 @@
     
     <header class="detail-top-header">
       <div class="header-left-actions">
-        <button class="nav-action-btn back-list-btn" @click="goBack" title="返回上页列表">
+        <button v-if="showBackButton" class="nav-action-btn back-list-btn" @click="goBack" title="返回上页列表">
           <span class="btn-icon">⬅️</span>
           <span>返回列表</span>
         </button>
@@ -207,6 +207,12 @@ const gameStore = useGameStore()
 const game = ref(null)
 const isLoading = ref(true)
 const isLiked = ref(false)
+
+// 判断是否显示"返回列表"按钮：只有当 pinia 中有多条数据时才显示
+// 如果只有一条数据，说明是通过分享链接直接访问的（走的是单个游戏 API）
+const showBackButton = computed(() => {
+  return gameStore.allGames && gameStore.allGames.length > 1
+})
 
 const activeMediaIndex = ref(0)
 let bannerTimer = null
