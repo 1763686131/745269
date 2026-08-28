@@ -15,8 +15,13 @@
       </button>
     </transition>
 
-    <!-- 🎰 每日抽奖按钮 -->
-    <button class="float-btn lottery-btn" @click="openLotteryModal" title="每日抽奖">
+    <!-- 🎰 每日抽奖按钮 (🌟 在游戏详情页隐藏) -->
+    <button
+      v-if="!isGameDetailPage"
+      class="float-btn lottery-btn"
+      @click="openLotteryModal"
+      title="每日抽奖"
+    >
       <div class="lottery-card-icon"></div>
       <!-- 提示气泡 -->
       <transition name="tooltip-fade">
@@ -134,6 +139,11 @@ const qqGroupQrCode = ref('') // 👈 QQ群二维码，可配置图片外链，�
 const route = useRoute()
 const isAdminRoute = computed(() => {
   return route && route.path && route.path.startsWith('/admin')
+})
+
+// 🌟 新增：判断是否在游戏详情页
+const isGameDetailPage = computed(() => {
+  return route && route.path && route.path.startsWith('/game/')
 })
 
 // ================= 🌟 滚动顶部逻辑 =================

@@ -480,6 +480,9 @@ const resetToQuestions = () => {
 
 // 关闭弹窗（不删除本地存储，只关闭界面）
 const closeLottery = () => {
+  // 🌟 关键修复：用户主动关闭弹窗时，清除路径记录
+  // 这样从其他地方进入详情页再返回时，不会自动弹出抽奖弹窗
+  lotteryCompletePath.value = null
   emit('close')
   // 不再调用 resetToQuestions()，保持数据不变
 }

@@ -7,6 +7,7 @@ const API_BASE_URL = ''
 export const useGameStore = defineStore('game', () => {
   const isLoading = ref(false)
   const allGames = ref([])
+  const searchResults = ref([]) // 🌟 新增：专门存储搜索结果，不覆盖 allGames
   const isAdminLoggedIn = ref(localStorage.getItem('745269_admin_token') ? true : false)
 
   // 🔔 未处理反馈数量
@@ -249,7 +250,8 @@ export const useGameStore = defineStore('game', () => {
       }
       const data = await response.json()
       const parsedData = (Array.isArray(data) ? data : []).map(parseGameData)
-      allGames.value = parsedData
+      // 🌟 修复：搜索结果不覆盖 allGames，而是存到 searchResults
+      searchResults.value = parsedData
       return parsedData
     } catch (error) {
       console.error('服务端搜索失败:', error.message)
@@ -549,6 +551,7 @@ const parseIps = async (ipArray) => {
   return {
     isLoading,
     allGames,
+    searchResults, // 🌟 新增：导出搜索结果
     hasMore,
     fetchGames,
     saveGame,
